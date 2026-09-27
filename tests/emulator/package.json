@@ -1,0 +1,19 @@
+{
+  "name": "@dots/emulator-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@dots/game-engine": "workspace:*",
+    "@dots/protocol": "workspace:*",
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "@types/node": "^22",
+    "firebase": "^12.19.0",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.2"
+  }
+}

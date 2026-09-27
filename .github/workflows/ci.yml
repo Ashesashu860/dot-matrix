@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Firebase rules + functions (Emulator Suite)
+        run: |
+          pnpm --filter @dots/functions build
+          pnpm dlx firebase-tools@15 emulators:exec --project demo-dots-matrix --only auth,firestore,database,functions "pnpm --filter @dots/emulator-tests test"
+      - run: pnpm build
+      - name: E2E (mobile, offline PWA)
+        run: |
+          pnpm --filter @dots/e2e exec playwright install --with-deps chromium
+          pnpm e2e
+
+  # Deploy is stubbed until real staging/production Firebase projects exist.
+  # deploy:
+  #   needs: quality
+  #   if: github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - run: pnpm dlx firebase-tools@15 deploy --only firestore,database,functions --project staging
+  #       env: { GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_SA }} }

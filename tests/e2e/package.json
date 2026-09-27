@@ -1,0 +1,14 @@
+{
+  "name": "@dots/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --project=mobile",
+    "test:online": "playwright test --project=online"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.10.2",
+    "@playwright/test": "^1.63.0"
+  }
+}

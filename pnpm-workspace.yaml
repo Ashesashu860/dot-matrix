@@ -1,0 +1,14 @@
+packages:
+  - apps/*
+  - packages/*
+  - functions
+  - tests/*
+
+allowBuilds:
+  sharp: true
+  unrs-resolver: true
+  esbuild: true
+  protobufjs: true
+  re2: false
+  "@swc/core": false
+  "@firebase/util": false

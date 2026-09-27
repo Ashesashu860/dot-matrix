@@ -1,0 +1,25 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "status": {
+      "$roomId": {
+        ".read": "auth != null && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid && root.child('rooms').child($roomId).child('members').child(auth.uid).exists()",
+          ".validate": "newData.hasChildren(['state', 'at']) && (newData.child('state').val() === 'online' || newData.child('state').val() === 'offline') && newData.child('at').isNumber()",
+          "state": { ".validate": true },
+          "at": { ".validate": true },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "rooms": {
+      "$roomId": {
+        "members": {
+          ".read": "auth != null && data.child(auth.uid).exists()"
+        }
+      }
+    }
+  }
+}

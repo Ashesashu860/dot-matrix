@@ -1,0 +1,63 @@
+rules_version = '2';
+
+// Least-privilege rules (§6). Every authoritative field — scores, cell
+// ownership, turn, winner, accepted moves, game status — is written only by
+// Cloud Functions through the Admin SDK, which bypasses these rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomMember(roomId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.playerUids;
+    }
+
+    function gameMember(gameId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/games/$(gameId)).data.memberUids;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['displayName', 'createdAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 20
+        && request.resource.data.createdAt is int;
+      allow delete: if false;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.playerUids;
+      allow write: if false;
+
+      match /players/{uid} {
+        allow read: if roomMember(roomId);
+        allow write: if false;
+      }
+    }
+
+    match /games/{gameId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.memberUids;
+      allow write: if false;
+
+      match /moves/{moveId} {
+        allow read: if gameMember(gameId);
+        allow write: if false;
+      }
+    }
+
+    match /playerStats/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // roomCodes, rateLimits and anything else: server only.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
