@@ -40,6 +40,8 @@ export interface FirebaseServices {
   functions: Functions;
 }
 
+const EMULATOR_PROJECT_ID = 'demo-dots-matrix';
+
 let services: FirebaseServices | null = null;
 
 export function isFirebaseConfigured(): boolean {
@@ -48,22 +50,29 @@ export function isFirebaseConfigured(): boolean {
 
 export function getFirebase(): FirebaseServices {
   if (services) return services;
-  const projectId = env.projectId || 'demo-dots-matrix';
   // Default to the current hostname so a phone on the LAN can reach the emulators.
   const host = env.emulatorHost || window.location.hostname;
+  // The emulators always run as the demo project, whatever real config is in .env files.
   const app =
     getApps()[0] ??
-    initializeApp({
-      apiKey: env.apiKey || 'demo-key',
-      authDomain: env.authDomain || `${projectId}.firebaseapp.com`,
-      projectId,
-      storageBucket: env.storageBucket,
-      messagingSenderId: env.messagingSenderId,
-      appId: env.appId,
-      databaseURL:
-        env.databaseURL ||
-        (env.useEmulators ? `http://${host}:9000?ns=${projectId}` : `https://${projectId}-default-rtdb.firebaseio.com`),
-    });
+    initializeApp(
+      env.useEmulators
+        ? {
+            apiKey: 'demo-key',
+            authDomain: `${EMULATOR_PROJECT_ID}.firebaseapp.com`,
+            projectId: EMULATOR_PROJECT_ID,
+            databaseURL: `http://${host}:9000?ns=${EMULATOR_PROJECT_ID}`,
+          }
+        : {
+            apiKey: env.apiKey,
+            authDomain: env.authDomain,
+            projectId: env.projectId,
+            storageBucket: env.storageBucket,
+            messagingSenderId: env.messagingSenderId,
+            appId: env.appId,
+            databaseURL: env.databaseURL || `https://${env.projectId}-default-rtdb.firebaseio.com`,
+          },
+    );
 
   if (env.recaptchaKey) {
     if (env.useEmulators || env.appCheckDebug) {

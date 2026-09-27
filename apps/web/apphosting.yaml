@@ -1,6 +1,8 @@
 # Firebase App Hosting config for the Next.js app.
-# Create the backend with root directory `apps/web` (monorepo), then set values
-# per environment (e.g. apphosting.staging.yaml / apphosting.production.yaml).
+# Create one backend per Firebase project with root directory `apps/web` (monorepo), and set
+# each backend's Environment name (App Hosting → backend → Settings) to `staging` or
+# `production`. App Hosting merges this file with the matching apphosting.<env>.yaml, which
+# holds that project's web config.
 runConfig:
   minInstances: 0
   maxInstances: 10
@@ -9,33 +11,6 @@ runConfig:
   memoryMiB: 512
 
 env:
-  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: AIzaSyBD-3nwvzV45sB9zxL10sfeIphREpB0QAY
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: dot-matrix-a83f6.firebaseapp.com
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: dot-matrix-a83f6
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: dot-matrix-a83f6.firebasestorage.app
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: "30614323931"
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: "1:30614323931:web:b2bb5abb9c5aa6029d02fe"
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
-    value: G-6G9C2HFVNP
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
-    value: https://dot-matrix-a83f6-default-rtdb.firebaseio.com
-    availability: [BUILD, RUNTIME]
-  - variable: NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY
-    value: REPLACE_ME
-    availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_USE_FIREBASE_EMULATORS
     value: "false"
     availability: [BUILD, RUNTIME]

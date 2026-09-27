@@ -37,7 +37,7 @@ jobs:
           pnpm --filter @dots/e2e exec playwright install --with-deps chromium
           pnpm e2e
 
-  # Deploy is stubbed until real staging/production Firebase projects exist.
+  # Deploy is stubbed until service-account secrets for dot-matrix-staging and dot-matrix-a83f6 are added.
   # deploy:
   #   needs: quality
   #   if: github.ref == 'refs/heads/main'

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "dot-matrix-a83f6"
+    "default": "demo-dots-matrix",
+    "staging": "dot-matrix-staging",
+    "production": "dot-matrix-a83f6"
   }
 }

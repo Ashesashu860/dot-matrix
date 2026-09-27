@@ -1,0 +1,31 @@
+# Production: Firebase project dot-matrix-a83f6. Merged over apphosting.yaml.
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyBD-3nwvzV45sB9zxL10sfeIphREpB0QAY
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: dot-matrix-a83f6.firebaseapp.com
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: dot-matrix-a83f6
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: dot-matrix-a83f6.firebasestorage.app
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "30614323931"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:30614323931:web:b2bb5abb9c5aa6029d02fe"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    value: G-6G9C2HFVNP
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+    value: https://dot-matrix-a83f6-default-rtdb.firebaseio.com
+    availability: [BUILD, RUNTIME]
+  # Uncomment once App Check (reCAPTCHA Enterprise) is set up for this project, then set
+  # ENFORCE_APP_CHECK=true in functions/.env.dot-matrix-a83f6.
+  # - variable: NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY
+  #   value: <site key>
+  #   availability: [BUILD, RUNTIME]
