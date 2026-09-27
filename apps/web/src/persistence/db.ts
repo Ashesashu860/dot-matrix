@@ -12,7 +12,10 @@ import type { LocalGameSetup } from '@/controllers/local-controller';
 
 export interface Settings {
   sound: boolean;
+  /** 0-100; 80 keeps the default effects/music balance. */
+  soundVolume: number;
   music: boolean;
+  musicVolume: number;
   vibration: boolean;
   animations: boolean;
   extraTurnOnCapture: boolean;
@@ -22,7 +25,9 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   sound: true,
+  soundVolume: 80,
   music: false,
+  musicVolume: 80,
   vibration: true,
   animations: true,
   extraTurnOnCapture: true,

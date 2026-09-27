@@ -1,7 +1,7 @@
 /// <reference lib="esnext" />
 /// <reference lib="webworker" />
 import { defaultCache } from '@serwist/turbopack/worker';
-import { NetworkOnly, Serwist } from 'serwist';
+import { CacheFirst, CacheableResponsePlugin, NetworkOnly, RangeRequestsPlugin, Serwist } from 'serwist';
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
 
 declare global {
@@ -29,6 +29,15 @@ const serwist = new Serwist({
       matcher: ({ url, sameOrigin }) =>
         !sameOrigin && (FIREBASE_HOSTS.test(url.hostname) || url.hostname === 'localhost' || url.hostname === '127.0.0.1'),
       handler: new NetworkOnly(),
+    },
+    // The theme track: fetched whole on first play, then served from cache offline.
+    // Kept indefinitely (defaultCache would expire audio after 24 h).
+    {
+      matcher: ({ url, sameOrigin }) => sameOrigin && url.pathname.startsWith('/audio/'),
+      handler: new CacheFirst({
+        cacheName: 'game-music',
+        plugins: [new CacheableResponsePlugin({ statuses: [200] }), new RangeRequestsPlugin()],
+      }),
     },
     ...defaultCache,
   ],
