@@ -24,7 +24,7 @@ test('after the service worker installs, local games work with no network', asyn
 
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Box Hunt' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Dotsnatch' })).toBeVisible();
   await page.waitForLoadState('networkidle');
   // Navigate the way a user would: offline client navigation falls back to the precached page.
   await page.getByRole('link', { name: /Local Game/ }).click();

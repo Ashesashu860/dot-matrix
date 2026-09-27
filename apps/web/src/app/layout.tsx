@@ -8,7 +8,7 @@ const nunito = Nunito({ variable: '--font-sans', subsets: ['latin'], weight: ['6
 const baloo = Baloo_2({ variable: '--font-baloo', subsets: ['latin'], weight: ['600', '700', '800'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
-const APP_NAME = 'Box Hunt';
+const APP_NAME = 'Dotsnatch';
 const DESCRIPTION = 'Connect. Capture. Conquer. A dots-and-boxes strategy game for 2–4 players.';
 
 export const metadata: Metadata = {

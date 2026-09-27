@@ -58,9 +58,9 @@ export function Lobby({
   };
 
   const share = async () => {
-    const text = `Join my Box Hunt game with code ${room.code}`;
+    const text = `Join my Dotsnatch game with code ${room.code}`;
     try {
-      if (navigator.share) await navigator.share({ title: 'Box Hunt', text });
+      if (navigator.share) await navigator.share({ title: 'Dotsnatch', text });
       else await copy();
     } catch {
       // cancelled

@@ -72,7 +72,7 @@ export function InstallHint() {
             setPrompt(null);
           }}
         >
-          Install Box Hunt to play offline
+          Install Dotsnatch to play offline
         </button>
       ) : (
         <p>

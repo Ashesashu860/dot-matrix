@@ -17,7 +17,7 @@ export function PwaUpdater() {
   useEffect(() => {
     if (!serwist) return;
     const onWaiting = () => {
-      toast('A new version of Box Hunt is available', {
+      toast('A new version of Dotsnatch is available', {
         id: 'pwa-update',
         duration: Infinity,
         action: {

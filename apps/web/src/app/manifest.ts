@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Box Hunt',
-    short_name: 'Box Hunt',
+    name: 'Dotsnatch',
+    short_name: 'Dotsnatch',
     description: 'Connect. Capture. Conquer. A dots-and-boxes strategy game.',
     id: '/',
     start_url: '/',

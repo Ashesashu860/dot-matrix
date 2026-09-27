@@ -12,7 +12,7 @@ function Switch({
     <SwitchPrimitive.Root
       data-slot="switch"
       className={cn(
-        // Box Hunt switch: 58×34 track, green when on, springy knob.
+        // Dotsnatch switch: 58×34 track, green when on, springy knob.
         "peer group/switch relative inline-flex h-[34px] w-[58px] shrink-0 cursor-pointer items-center rounded-full border-none p-1 transition-colors duration-200 outline-none after:absolute after:-inset-x-2 after:-inset-y-2 data-checked:bg-green data-unchecked:bg-[#DCD3E8] data-disabled:cursor-not-allowed data-disabled:opacity-50",
         className
       )}

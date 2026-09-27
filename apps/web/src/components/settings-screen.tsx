@@ -17,7 +17,7 @@ type VolumeKey = 'soundVolume' | 'musicVolume';
 
 const TOGGLES: Array<{ key: keyof Settings; label: string; hint: string; volume?: VolumeKey }> = [
   { key: 'sound', label: 'Sound', hint: 'Pops, chimes and fanfares', volume: 'soundVolume' },
-  { key: 'music', label: 'Music', hint: 'Box Hunt theme', volume: 'musicVolume' },
+  { key: 'music', label: 'Music', hint: 'Dotsnatch theme', volume: 'musicVolume' },
   { key: 'vibration', label: 'Vibration', hint: 'Haptic taps on capture' },
   { key: 'animations', label: 'Animations', hint: 'Bursts, confetti and motion' },
   { key: 'cpuFirst', label: 'CPU moves first', hint: 'Bots make the opening move vs CPU' },

@@ -65,24 +65,26 @@ export function BrandLogo() {
 }
 
 const TILES: Array<{ ch: string; bg: string; edge: string; fg: string; tilt: number }> = [
-  { ch: 'H', bg: '#FF3D7F', edge: '#D61F63', fg: '#fff', tilt: -6 },
-  { ch: 'U', bg: '#1E9BFF', edge: '#0A73CC', fg: '#fff', tilt: 4 },
-  { ch: 'N', bg: '#FFB21E', edge: '#D98900', fg: '#2B1B4A', tilt: -3 },
+  { ch: 'S', bg: '#FF3D7F', edge: '#D61F63', fg: '#fff', tilt: -6 },
+  { ch: 'N', bg: '#1E9BFF', edge: '#0A73CC', fg: '#fff', tilt: 4 },
+  { ch: 'A', bg: '#FFB21E', edge: '#D98900', fg: '#2B1B4A', tilt: -3 },
   { ch: 'T', bg: '#21C46B', edge: '#139650', fg: '#fff', tilt: 5 },
+  { ch: 'C', bg: '#FF3D7F', edge: '#D61F63', fg: '#fff', tilt: -4 },
+  { ch: 'H', bg: '#1E9BFF', edge: '#0A73CC', fg: '#fff', tilt: 3 },
 ];
 
-/** "BOX" over lettered tiles spelling "HUNT". Screen readers get the plain name. */
+/** "DOT" over lettered tiles spelling "SNATCH". Screen readers get the plain name. */
 export function Wordmark() {
   return (
-    <h1 className="flex flex-col items-center" aria-label="Box Hunt">
+    <h1 className="flex flex-col items-center" aria-label="Dotsnatch">
       <span aria-hidden="true" className="mt-[18px] font-display text-[60px] leading-[0.9] font-extrabold tracking-[-1px] text-screen">
-        BOX
+        DOT
       </span>
       <span aria-hidden="true" className="mt-1 flex gap-[5px]">
         {TILES.map((t) => (
           <span
             key={t.ch}
-            className="flex h-[52px] w-[46px] items-center justify-center rounded-[14px] font-display text-[34px] leading-none font-extrabold"
+            className="flex h-[48px] w-[42px] items-center justify-center rounded-[13px] font-display text-[30px] leading-none font-extrabold"
             style={{ background: t.bg, boxShadow: `0 5px 0 ${t.edge}`, color: t.fg, transform: `rotate(${t.tilt}deg)` }}
           >
             {t.ch}

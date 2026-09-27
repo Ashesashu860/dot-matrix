@@ -7,7 +7,7 @@ import { darkShade, inkOn } from '@/lib/players';
 import { cn } from '@/lib/utils';
 
 /**
- * Shared building blocks for the Box Hunt look: chunky buttons with a solid
+ * Shared building blocks for the Dotsnatch look: chunky buttons with a solid
  * bottom edge, white cards, round back buttons and player tokens.
  */
 
