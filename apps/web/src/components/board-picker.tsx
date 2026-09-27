@@ -1,7 +1,9 @@
 'use client';
 
-import { CUSTOM_LEVEL, LEVELS, MAX_DOTS, MIN_DOTS, cellCount } from '@dots/game-engine';
+import { CUSTOM_LEVEL, LEVELS, MIN_DOTS, cellCount } from '@dots/game-engine';
+import { useEffect, useState } from 'react';
 import { Chunky } from '@/components/kit';
+import { useBoardLimits } from '@/lib/board-limits';
 import { playSound } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
 import { useSettings } from '@/stores/settings-store';
@@ -20,14 +22,28 @@ export function BoardPicker({
   onChange,
   unlockedLevel,
   allowCustom = true,
+  maxDots,
 }: {
   value: BoardChoice;
   onChange(value: BoardChoice): void;
   unlockedLevel?: number;
   allowCustom?: boolean;
+  /** Tighter cap than the screen allows (online rooms). */
+  maxDots?: number;
 }) {
   const sound = useSettings((s) => s.sound);
   const custom = value.level === CUSTOM_LEVEL;
+  const screenLimits = useBoardLimits();
+  const limits = maxDots
+    ? { rows: Math.min(maxDots, screenLimits.rows), columns: Math.min(maxDots, screenLimits.columns) }
+    : screenLimits;
+  const fit = (v: BoardChoice) => ({ ...v, rows: Math.min(v.rows, limits.rows), columns: Math.min(v.columns, limits.columns) });
+
+  // Keep a custom size within the limits when the screen size changes.
+  useEffect(() => {
+    if (custom && (value.rows > limits.rows || value.columns > limits.columns)) onChange(fit(value));
+  });
+
   return (
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Level">
@@ -65,7 +81,7 @@ export function BoardPicker({
             aria-label="Custom board size"
             tone={custom ? 'pink' : 'soft'}
             lift={4}
-            onClick={() => onChange({ level: CUSTOM_LEVEL, rows: value.rows, columns: value.columns })}
+            onClick={() => onChange(fit({ level: CUSTOM_LEVEL, rows: value.rows, columns: value.columns }))}
             className={cn(tile, 'col-span-4 h-12 flex-row gap-2')}
           >
             <span className="text-lg leading-none">Custom size</span>
@@ -79,13 +95,14 @@ export function BoardPicker({
       </div>
       {custom && (
         <div className="flex flex-col gap-2 rounded-[18px] bg-soft p-3">
-          <div className="flex items-center justify-around gap-4">
-            <Stepper label="Rows" value={value.rows} onChange={(rows) => onChange({ ...value, rows })} />
+          <div className="flex items-center justify-center gap-2">
+            <Stepper label="Rows" value={value.rows} max={limits.rows} onChange={(rows) => onChange({ ...value, rows })} />
             <span className="font-display text-xl text-label">×</span>
-            <Stepper label="Columns" value={value.columns} onChange={(columns) => onChange({ ...value, columns })} />
+            <Stepper label="Columns" value={value.columns} max={limits.columns} onChange={(columns) => onChange({ ...value, columns })} />
           </div>
           <p className="text-center text-xs font-bold text-label">
-            {cellCount(value.rows, value.columns)} boxes · custom boards don&apos;t unlock levels
+            {cellCount(value.rows, value.columns)} boxes · up to {limits.rows}×{limits.columns}{maxDots ? '' : ' on this screen'} · custom boards
+            don&apos;t unlock levels
           </p>
         </div>
       )}
@@ -93,22 +110,43 @@ export function BoardPicker({
   );
 }
 
-function Stepper({ label, value, onChange }: { label: string; value: number; onChange(v: number): void }) {
-  const step = 'flex size-[42px] items-center justify-center rounded-[14px] text-2xl leading-none';
+function Stepper({ label, value, max, onChange }: { label: string; value: number; max: number; onChange(v: number): void }) {
+  const step = 'flex size-[38px] items-center justify-center rounded-[14px] text-2xl leading-none';
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft === null) return;
+    const n = Number.parseInt(draft, 10);
+    if (Number.isFinite(n)) onChange(Math.min(max, Math.max(MIN_DOTS, n)));
+    setDraft(null);
+  };
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="card-label text-[10px]!">{label} (dots)</span>
-      <div className="flex items-center gap-2">
+      <label htmlFor={`board-${label}`} className="card-label text-[10px]!">
+        {label} (dots)
+      </label>
+      <div className="flex items-center gap-1.5">
         <Chunky tone="white" lift={3} className={step} aria-label={`Fewer ${label.toLowerCase()}`} disabled={value <= MIN_DOTS} onClick={() => onChange(value - 1)}>
           −
         </Chunky>
-        <span className="w-6 text-center font-display text-xl font-extrabold text-ink tabular-nums" aria-live="polite">
-          {value}
-        </span>
-        <Chunky tone="white" lift={3} className={step} aria-label={`More ${label.toLowerCase()}`} disabled={value >= MAX_DOTS} onClick={() => onChange(value + 1)}>
+        <input
+          id={`board-${label}`}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          aria-describedby={`board-${label}-range`}
+          value={draft ?? String(value)}
+          onChange={(e) => setDraft(e.target.value.replace(/\D/g, '').slice(0, 2))}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === 'Enter' && commit()}
+          className="w-9 rounded-lg bg-transparent text-center font-display text-xl font-extrabold text-ink tabular-nums focus:bg-white focus:outline-2 focus:outline-[#7B5CFF]"
+        />
+        <Chunky tone="white" lift={3} className={step} aria-label={`More ${label.toLowerCase()}`} disabled={value >= max} onClick={() => onChange(value + 1)}>
           +
         </Chunky>
       </div>
+      <span id={`board-${label}-range`} className="sr-only">
+        {MIN_DOTS} to {max}
+      </span>
     </div>
   );
 }

@@ -1,6 +1,9 @@
-/** Smallest and largest supported dot grids (per side). */
+/**
+ * Smallest and largest supported dot grids (per side). This is the hard cap;
+ * the web app applies tighter limits for custom boards on small screens.
+ */
 export const MIN_DOTS = 3;
-export const MAX_DOTS = 12;
+export const MAX_DOTS = 50;
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 4;

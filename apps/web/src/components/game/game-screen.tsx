@@ -34,6 +34,9 @@ export interface GameScreenProps {
 
 /** Room left for everything above and below the board. */
 const BOARD_MAX_HEIGHT = 'max(240px, calc(100dvh - 24rem))';
+/** Boards bigger than the level set may grow past the screen so boxes stay tappable. */
+const LARGE_BOARD_DOTS = 12;
+const MIN_BOX_PX = 22;
 
 /** Elapsed play time; stops while paused and once the game ends. */
 function useElapsed(startedAt: number | undefined, endedAt: number | undefined, paused: boolean) {
@@ -122,6 +125,10 @@ export function GameScreen({
   const total = cellCount(state.rows, state.columns);
   const claimed = state.players.reduce((sum, p) => sum + p.score, 0);
   const { width, height } = viewBoxSize({ rows: state.rows, columns: state.columns });
+  // Large custom boards break out of the phone-width column (up to the viewport
+  // width) and can be taller than the screen, so the page scrolls.
+  const large = state.rows > LARGE_BOARD_DOTS || state.columns > LARGE_BOARD_DOTS;
+  const boardMaxHeight = large ? `max(${BOARD_MAX_HEIGHT}, ${(state.rows - 1) * MIN_BOX_PX}px)` : BOARD_MAX_HEIGHT;
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col gap-4 px-5 pt-[max(env(safe-area-inset-top),6px)] pb-[max(env(safe-area-inset-bottom),24px)]">
@@ -173,13 +180,14 @@ export function GameScreen({
       <main className="flex flex-1 flex-col justify-center">
         <div
           className="self-center rounded-[30px] bg-white p-3 shadow-[0_8px_0_#EFE3CE,0_20px_40px_-18px_rgba(43,27,74,.35)]"
-          style={{ width: `min(100%, calc(${BOARD_MAX_HEIGHT} * ${width / height} + 24px))` }}
+          style={{ width: `min(${large ? 'calc(100vw - 40px)' : '100%'}, calc(${boardMaxHeight} * ${width / height} + 24px))` }}
         >
           <GameBoard
             state={state}
             interactive={interactive}
             pendingEdgeId={view.pendingEdgeId}
             lastEvent={view.lastEvent}
+            maxHeight={boardMaxHeight}
             onSelect={controller.submitMove.bind(controller)}
           />
         </div>

@@ -2,7 +2,7 @@
  * Shared contract between the web client and Cloud Functions: callable request /
  * response schemas, Firestore document shapes, error codes and small helpers.
  */
-import { MAX_DOTS, MAX_LEVEL, MAX_PLAYERS, MIN_DOTS, MIN_PLAYERS } from '@dots/game-engine';
+import { MAX_LEVEL, MAX_PLAYERS, MIN_DOTS, MIN_PLAYERS } from '@dots/game-engine';
 import type { GameState, MoveError, PlayerStats } from '@dots/game-engine';
 import { z } from 'zod';
 
@@ -103,12 +103,19 @@ const playerName = z
   .transform(sanitizePlayerName)
   .refine((s) => s.length > 0, 'Name is required');
 
+/**
+ * Online games cap custom boards well below the engine's limit: the whole game
+ * state is one Firestore document, rewritten and sent to every player on each
+ * move (a 50×50 board is ~730 KB, near the 1 MiB document limit).
+ */
+export const ONLINE_MAX_DOTS = 12;
+
 export const boardSchema = z.union([
   z.object({ level: z.number().int().min(1).max(MAX_LEVEL) }),
   z.object({
     level: z.literal(0),
-    rows: z.number().int().min(MIN_DOTS).max(MAX_DOTS),
-    columns: z.number().int().min(MIN_DOTS).max(MAX_DOTS),
+    rows: z.number().int().min(MIN_DOTS).max(ONLINE_MAX_DOTS),
+    columns: z.number().int().min(MIN_DOTS).max(ONLINE_MAX_DOTS),
   }),
 ]);
 

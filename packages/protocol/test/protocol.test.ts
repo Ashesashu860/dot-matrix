@@ -44,7 +44,7 @@ describe('request schemas', () => {
     expect(req.extraTurnOnCapture).toBe(true);
     expect(() => createRoomRequest.parse({ name: 'Ada', board: { level: 9 } })).toThrow();
     expect(() =>
-      createRoomRequest.parse({ name: 'Ada', board: { level: 0, rows: 20, columns: 4 } }),
+      createRoomRequest.parse({ name: 'Ada', board: { level: 0, rows: 13, columns: 4 } }),
     ).toThrow();
     expect(() => createRoomRequest.parse({ name: '   ', board: { level: 1 } })).toThrow();
   });

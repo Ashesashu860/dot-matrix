@@ -178,8 +178,9 @@ export const GameBoard = memo(function GameBoard({
   // Stroke sizes follow the design: clamped in screen pixels for a ~326px board.
   const unitsPerPx = width / BOARD_PX;
   const spacingPx = SPACING / unitsPerPx;
-  const lineWidth = clamp(spacingPx * 0.12, 4, 9) * unitsPerPx;
-  const dotRadius = clamp(spacingPx * 0.09, 4.5, 8.5) * unitsPerPx;
+  // The minimums shrink on very large boards so lines and dots don't crowd the boxes.
+  const lineWidth = clamp(spacingPx * 0.12, Math.min(4, spacingPx * 0.16), 9) * unitsPerPx;
+  const dotRadius = clamp(spacingPx * 0.09, Math.min(4.5, spacingPx * 0.18), 8.5) * unitsPerPx;
   const inset = lineWidth * 0.5 + 2.5 * unitsPerPx;
   const boxSize = SPACING - inset * 2;
   const boxRadius = Math.min(14 * unitsPerPx, boxSize * 0.22);

@@ -1,7 +1,7 @@
 'use client';
 
 import { CUSTOM_LEVEL, MAX_PLAYERS } from '@dots/game-engine';
-import { PLAYER_NAME_MAX, ROOM_CODE_LENGTH, normaliseRoomCode, sanitizePlayerName } from '@dots/protocol';
+import { ONLINE_MAX_DOTS, PLAYER_NAME_MAX, ROOM_CODE_LENGTH, normaliseRoomCode, sanitizePlayerName } from '@dots/protocol';
 import { Loader2, WifiOff } from 'lucide-react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
 import { useRouter } from 'next/navigation';
@@ -190,7 +190,7 @@ export function OnlineHome() {
 
         <TabsPrimitive.Content value="create" className="flex flex-col gap-3.5 outline-none">
           <Section title="Level">
-            <BoardPicker value={board} onChange={setBoard} />
+            <BoardPicker value={board} onChange={setBoard} maxDots={ONLINE_MAX_DOTS} />
           </Section>
           <Section title="Players">
             <div className="flex gap-2" role="radiogroup" aria-label="Maximum players">

@@ -53,7 +53,7 @@ describe('board generation', () => {
 
   it('rejects unsupported sizes', () => {
     expect(() => generateBoard(2, 4)).toThrow(RangeError);
-    expect(() => generateBoard(13, 4)).toThrow(RangeError);
+    expect(() => generateBoard(51, 4)).toThrow(RangeError);
     expect(() => generateBoard(4.5, 4)).toThrow(RangeError);
   });
 
