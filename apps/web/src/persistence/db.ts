@@ -19,6 +19,8 @@ export interface Settings {
   vibration: boolean;
   animations: boolean;
   extraTurnOnCapture: boolean;
+  /** vs CPU: a bot makes the opening move. */
+  cpuFirst: boolean;
   lastPlayerNames: string[];
   onlineName: string;
 }
@@ -31,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
   vibration: true,
   animations: true,
   extraTurnOnCapture: true,
+  cpuFirst: false,
   lastPlayerNames: ['Player 1', 'Player 2', 'Player 3', 'Player 4'],
   onlineName: '',
 };

@@ -20,6 +20,7 @@ const TOGGLES: Array<{ key: keyof Settings; label: string; hint: string; volume?
   { key: 'music', label: 'Music', hint: 'Box Hunt theme', volume: 'musicVolume' },
   { key: 'vibration', label: 'Vibration', hint: 'Haptic taps on capture' },
   { key: 'animations', label: 'Animations', hint: 'Bursts, confetti and motion' },
+  { key: 'cpuFirst', label: 'CPU moves first', hint: 'Bots make the opening move vs CPU' },
 ];
 
 const THEMES = [

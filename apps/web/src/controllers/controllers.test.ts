@@ -99,6 +99,23 @@ describe('LocalController', () => {
 describe('CpuController', () => {
   const hooks = { minThinkMs: 0, wait: async () => {} };
 
+  it('opens with the CPU when cpuFirst is set, including after a restart', async () => {
+    const setup = { ...cpuSetup, cpuFirst: true };
+    const state = newLocalGame(setup, 'g', 0);
+    expect(state.currentPlayerIndex).toBe(1);
+    const c = new CpuController(state, setup, createInlineRunner(), hooks);
+    await until(() => c.getView().state.totalMoves === 1);
+    expect(Object.values(c.getView().state.edges).find((e) => e.claimedBy)?.claimedBy).toBe('cpu1');
+    c.restart();
+    await until(() => c.getView().state.totalMoves === 1);
+    expect(Object.values(c.getView().state.edges).find((e) => e.claimedBy)?.claimedBy).toBe('cpu1');
+    c.dispose();
+  });
+
+  it('lets the human open by default', () => {
+    expect(newLocalGame(cpuSetup, 'g', 0).currentPlayerIndex).toBe(0);
+  });
+
   it('lets the human move, then the CPU replies automatically', async () => {
     const c = new CpuController(newLocalGame(cpuSetup, 'g', 0), cpuSetup, createInlineRunner(), hooks);
     expect(c.getView().controllablePlayerIds).toEqual(['me']);

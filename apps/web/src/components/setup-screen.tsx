@@ -87,6 +87,7 @@ export function SetupScreen() {
       },
       difficulty: mode === 'cpu' ? difficulty : undefined,
       seed: Math.floor(Math.random() * 2 ** 31),
+      ...(mode === 'cpu' && settings.cpuFirst && { cpuFirst: true }),
     };
     settings.set({
       ...(mode === 'local' && {

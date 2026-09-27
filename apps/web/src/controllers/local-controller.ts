@@ -8,6 +8,8 @@ export interface LocalGameSetup {
   create: Omit<CreateGameOptions, 'gameId' | 'startedAt'>;
   difficulty?: Difficulty;
   seed: number;
+  /** vs CPU: the first bot opens instead of the human (kept for rematches). */
+  cpuFirst?: boolean;
 }
 
 export interface LocalControllerHooks {
@@ -20,7 +22,9 @@ export interface LocalControllerHooks {
 }
 
 export function newLocalGame(setup: LocalGameSetup, gameId: string, now: number): GameState {
-  return createGame({ ...setup.create, gameId, startedAt: now });
+  const state = createGame({ ...setup.create, gameId, startedAt: now });
+  const firstCpu = state.players.findIndex((p) => p.type === 'cpu');
+  return setup.cpuFirst && firstCpu >= 0 ? { ...state, currentPlayerIndex: firstCpu } : state;
 }
 
 /** Local multiplayer: the in-browser engine is the authority. */
