@@ -1,8 +1,7 @@
 'use client';
 
-import { Download, Share, X } from 'lucide-react';
+import { Share, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -63,34 +62,26 @@ export function InstallHint() {
   };
 
   return (
-    <div className="flex items-start gap-3 rounded-2xl border bg-card p-3 text-sm shadow-sm">
-      <Download className="mt-0.5 size-5 shrink-0 text-primary" />
-      <div className="flex-1">
-        <p className="font-medium">Install Box Hunt</p>
-        {prompt ? (
-          <p className="text-muted-foreground">Play offline from your home screen.</p>
-        ) : (
-          <p className="text-muted-foreground">
-            Tap <Share className="inline size-4 align-text-bottom" aria-label="Share" /> then{' '}
-            <strong>Add to Home Screen</strong> to play offline.
-          </p>
-        )}
-        {prompt && (
-          <Button
-            size="sm"
-            className="mt-2"
-            onClick={async () => {
-              await prompt.prompt();
-              await prompt.userChoice;
-              setPrompt(null);
-            }}
-          >
-            Install
-          </Button>
-        )}
-      </div>
-      <button onClick={dismiss} aria-label="Dismiss install tip" className="rounded-full p-1 text-muted-foreground hover:bg-muted">
-        <X className="size-4" />
+    <div className="flex items-center justify-center gap-1.5 text-center text-xs font-extrabold text-screen-soft">
+      {prompt ? (
+        <button
+          className="cursor-pointer underline decoration-2 underline-offset-2"
+          onClick={async () => {
+            await prompt.prompt();
+            await prompt.userChoice;
+            setPrompt(null);
+          }}
+        >
+          Install Box Hunt to play offline
+        </button>
+      ) : (
+        <p>
+          Tap <Share className="inline size-3.5 align-text-bottom" aria-label="Share" /> then Add to Home Screen to play
+          offline
+        </p>
+      )}
+      <button onClick={dismiss} aria-label="Dismiss install tip" className="cursor-pointer rounded-full p-1 hover:bg-black/5">
+        <X className="size-3.5" />
       </button>
     </div>
   );

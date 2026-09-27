@@ -17,6 +17,6 @@ export async function startLocalGame(page: Page, players = 2, level = 1) {
   await page.goto('/play/setup?mode=local');
   await page.getByRole('radio', { name: `${players} players` }).click();
   await page.getByRole('radio', { name: new RegExp(`^Level ${level},`) }).click();
-  await page.getByRole('button', { name: 'Start game' }).click();
+  await page.getByRole('button', { name: /Start level/ }).click();
   await expect(page.getByRole('group', { name: /Game board/ })).toBeVisible();
 }

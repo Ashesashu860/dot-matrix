@@ -17,7 +17,7 @@ const outputs = [
 for (const [name, size, inset] of outputs) {
   const inner = Math.round(size * (1 - inset * 2));
   const art = await sharp(svg).resize(inner, inner).png().toBuffer();
-  await sharp({ create: { width: size, height: size, channels: 4, background: inset ? '#3b5bdb' : { r: 0, g: 0, b: 0, alpha: 0 } } })
+  await sharp({ create: { width: size, height: size, channels: 4, background: inset ? '#FFEFD2' : { r: 0, g: 0, b: 0, alpha: 0 } } })
     .composite([{ input: art, gravity: 'center' }])
     .png()
     .toFile(path.join(dir, name));

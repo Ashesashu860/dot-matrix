@@ -1,34 +1,31 @@
 'use client';
 
-import { DIFFICULTIES } from '@dots/cpu-engine';
 import type { Difficulty } from '@dots/cpu-engine';
-import { MAX_PLAYERS, getLevel } from '@dots/game-engine';
+import { CUSTOM_LEVEL, MAX_PLAYERS, cellCount, getLevel } from '@dots/game-engine';
 import type { PlayerInit } from '@dots/game-engine';
-import { PLAYER_NAME_MAX, sanitizePlayerName } from '@dots/protocol';
-import { Bot, Play } from 'lucide-react';
+import { PLAYER_COLORS, PLAYER_NAME_MAX, sanitizePlayerName } from '@dots/protocol';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { BoardPicker } from '@/components/board-picker';
 import type { BoardChoice } from '@/components/board-picker';
-import { PlayerShapeIcon } from '@/components/game/player-shape';
+import { Chunky, Pill, PlayerToken } from '@/components/kit';
 import { PageShell, Section } from '@/components/page-shell';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { LocalGameSetup } from '@/controllers/local-controller';
-import { COLOR_CHOICES, COLOR_NAMES, shapeForIndex } from '@/lib/players';
 import { navigate } from '@/lib/navigation';
-import { cn } from '@/lib/utils';
+import { shapeForIndex } from '@/lib/players';
 import { useProgress } from '@/stores/progress-store';
 import { useSession } from '@/stores/session-store';
 import { useSettings } from '@/stores/settings-store';
 
 type Mode = 'cpu' | 'local';
 
-const DIFFICULTY_LABEL: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
 const CPU_NAMES = ['Bolt', 'Pixel', 'Nova'];
+const DIFFICULTY_OPTIONS: Array<{ value: Difficulty; label: string; desc: string; pips: string }> = [
+  { value: 'easy', label: 'Easy', desc: 'Chill bots', pips: '●○○' },
+  { value: 'medium', label: 'Medium', desc: 'Sneaky', pips: '●●○' },
+  { value: 'hard', label: 'Hard', desc: 'Ruthless', pips: '●●●' },
+];
 
 export function SetupScreen() {
   const router = useRouter();
@@ -39,7 +36,6 @@ export function SetupScreen() {
 
   const [playerCount, setPlayerCount] = useState(2);
   const [names, setNames] = useState<string[]>(settings.lastPlayerNames);
-  const [colors, setColors] = useState<string[]>(COLOR_CHOICES.slice(0, MAX_PLAYERS));
   const [difficulty, setDifficulty] = useState<Difficulty>('medium');
   const [board, setBoard] = useState<BoardChoice>({ level: 1, rows: 4, columns: 4 });
   const [extraTurn, setExtraTurn] = useState(settings.extraTurnOnCapture);
@@ -60,35 +56,24 @@ export function SetupScreen() {
     if (def) setBoard({ level: def.level, rows: def.rows, columns: def.columns });
   }, [mode, unlockedLevel]);
 
-  const setColor = (index: number, color: string) => {
-    setColors((prev) => {
-      const next = [...prev];
-      const other = next.indexOf(color);
-      // Swap so colours stay unique.
-      if (other !== -1) next[other] = next[index]!;
-      next[index] = color;
-      return next;
-    });
-  };
-
   const start = async () => {
     const cleanNames = names.map((n, i) => sanitizePlayerName(n) || `Player ${i + 1}`);
     const players: PlayerInit[] =
       mode === 'cpu'
         ? [
-            { id: 'human', name: cleanNames[0]!, type: 'human', color: colors[0]! },
+            { id: 'human', name: 'You', type: 'human', color: PLAYER_COLORS[0] },
             ...Array.from({ length: playerCount - 1 }, (_, i) => ({
               id: `cpu-${i + 1}`,
-              name: `${CPU_NAMES[i]} (${DIFFICULTY_LABEL[difficulty]})`,
+              name: CPU_NAMES[i]!,
               type: 'cpu' as const,
-              color: colors[i + 1]!,
+              color: PLAYER_COLORS[i + 1]!,
             })),
           ]
         : Array.from({ length: playerCount }, (_, i) => ({
             id: `p${i + 1}`,
             name: cleanNames[i]!,
             type: 'human' as const,
-            color: colors[i]!,
+            color: PLAYER_COLORS[i]!,
           }));
 
     const setup: LocalGameSetup = {
@@ -104,92 +89,68 @@ export function SetupScreen() {
       seed: Math.floor(Math.random() * 2 ** 31),
     };
     settings.set({
-      lastPlayerNames: cleanNames.concat(settings.lastPlayerNames.slice(cleanNames.length)).slice(0, MAX_PLAYERS),
+      ...(mode === 'local' && {
+        lastPlayerNames: cleanNames.concat(settings.lastPlayerNames.slice(cleanNames.length)).slice(0, MAX_PLAYERS),
+      }),
       extraTurnOnCapture: extraTurn,
     });
     await useSession.getState().startLocal(setup);
     navigate(router, '/play');
   };
 
-  const humanCount = mode === 'cpu' ? 1 : playerCount;
+  const custom = board.level === CUSTOM_LEVEL;
+  const boxes = cellCount(board.rows, board.columns);
 
   return (
     <PageShell
-      title={mode === 'cpu' ? 'Play vs CPU' : 'Local Game'}
+      title={mode === 'cpu' ? 'Play vs CPU' : 'Local game'}
       footer={
-        <Button size="lg" className="w-full text-base" onClick={start}>
-          <Play /> Start game
-        </Button>
+        <Chunky tone="pink" lift={7} glow onClick={start} className="flex h-[72px] w-full flex-col items-center justify-center gap-0.5 rounded-3xl">
+          <span className="text-[26px] leading-none">{custom ? 'Start custom game' : `Start level ${board.level}`}</span>
+          <span className="font-sans text-xs font-extrabold">
+            {board.rows}×{board.columns} dots · {boxes} boxes
+          </span>
+        </Chunky>
       }
     >
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        value={mode}
-        onValueChange={(v) => v && navigate(router, `/play/setup?mode=${v}`, { replace: true })}
-        className="w-full"
-        aria-label="Mode"
-      >
-        <ToggleGroupItem value="cpu" className="flex-1">vs CPU</ToggleGroupItem>
-        <ToggleGroupItem value="local" className="flex-1">Local</ToggleGroupItem>
-      </ToggleGroup>
-
-      <Section title={mode === 'cpu' ? 'Players' : 'Number of players'}>
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          value={String(playerCount)}
-          onValueChange={(v) => v && setPlayerCount(Number(v))}
-          className="w-full"
-          aria-label={mode === 'cpu' ? 'Total players including CPUs' : 'Number of players'}
-        >
-          {[2, 3, 4].map((n) => (
-            <ToggleGroupItem key={n} value={String(n)} className="flex-1">
-              {mode === 'cpu' ? `1 vs ${n - 1} CPU` : `${n} players`}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-
+      <Section title="Players">
+        <div className="flex gap-2" role="radiogroup" aria-label={mode === 'cpu' ? 'Number of CPU opponents' : 'Number of players'}>
+          {[2, 3, 4].map((n) => {
+            const selected = playerCount === n;
+            return (
+              <button
+                key={n}
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setPlayerCount(n)}
+                className="h-12 flex-1 cursor-pointer rounded-2xl font-display text-base font-extrabold transition-all duration-150"
+                style={{ background: selected ? '#2B1B4A' : '#F6F1FB', color: selected ? '#fff' : '#2B1B4A' }}
+              >
+                {mode === 'cpu' ? `${n - 1} ${n > 2 ? 'bots' : 'bot'}` : `${n} players`}
+              </button>
+            );
+          })}
+        </div>
         <ul className="flex flex-col gap-2">
           {Array.from({ length: playerCount }, (_, i) => {
-            const isCpu = i >= humanCount;
+            const isCpu = mode === 'cpu' && i > 0;
+            const color = PLAYER_COLORS[i]!;
             return (
-              <li key={i} className="flex items-center gap-2 rounded-xl bg-card p-2 shadow-sm">
-                <PlayerShapeIcon shape={shapeForIndex(i)} color={colors[i]!} size={22} />
-                {isCpu ? (
-                  <span className="flex flex-1 items-center gap-2 px-2 text-sm">
-                    <Bot className="size-4 text-muted-foreground" /> {CPU_NAMES[i - 1]}
-                  </span>
+              <li key={i} className="flex items-center gap-3">
+                <PlayerToken color={color} shape={shapeForIndex(i)} />
+                {mode === 'local' ? (
+                  <input
+                    aria-label={`Player ${i + 1} name`}
+                    value={names[i] ?? ''}
+                    placeholder={`Player ${i + 1}`}
+                    maxLength={PLAYER_NAME_MAX}
+                    onChange={(e) => setNames((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))}
+                    className="min-w-0 flex-1 rounded-xl border-none bg-soft px-3 py-[11px] text-base font-extrabold text-ink outline-none focus:shadow-[0_0_0_3px_#7B5CFF]"
+                  />
                 ) : (
-                  <>
-                    <Label htmlFor={`player-${i}`} className="sr-only">
-                      Player {i + 1} name
-                    </Label>
-                    <Input
-                      id={`player-${i}`}
-                      value={names[i] ?? ''}
-                      maxLength={PLAYER_NAME_MAX}
-                      onChange={(e) => setNames((prev) => prev.map((n, j) => (j === i ? e.target.value : n)))}
-                      className="flex-1"
-                    />
-                  </>
+                  <span className="flex-1 text-[17px] font-extrabold text-ink">{isCpu ? CPU_NAMES[i - 1] : 'You'}</span>
                 )}
-                <div className="flex gap-1" role="radiogroup" aria-label={`Player ${i + 1} colour`}>
-                  {COLOR_CHOICES.slice(0, 6).map((c) => (
-                    <button
-                      key={c}
-                      role="radio"
-                      aria-checked={colors[i] === c}
-                      aria-label={COLOR_NAMES[c] ?? c}
-                      onClick={() => setColor(i, c)}
-                      className={cn(
-                        'size-5 rounded-full ring-offset-2 ring-offset-card transition',
-                        colors[i] === c && 'ring-2 ring-foreground',
-                      )}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
-                </div>
+                <Pill>{isCpu ? 'CPU' : mode === 'cpu' ? 'YOU' : 'HUMAN'}</Pill>
               </li>
             );
           })}
@@ -198,39 +159,42 @@ export function SetupScreen() {
 
       {mode === 'cpu' && (
         <Section title="Difficulty">
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            value={difficulty}
-            onValueChange={(v) => v && setDifficulty(v as Difficulty)}
-            className="w-full"
-            aria-label="CPU difficulty"
-          >
-            {DIFFICULTIES.map((d) => (
-              <ToggleGroupItem key={d} value={d} className="flex-1">
-                {DIFFICULTY_LABEL[d]}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
+          <div className="flex gap-2" role="radiogroup" aria-label="CPU difficulty">
+            {DIFFICULTY_OPTIONS.map((d) => {
+              const selected = difficulty === d.value;
+              return (
+                <Chunky
+                  key={d.value}
+                  role="radio"
+                  aria-checked={selected}
+                  aria-label={d.label}
+                  tone={selected ? 'blue' : 'soft'}
+                  lift={4}
+                  onClick={() => setDifficulty(d.value)}
+                  className="flex flex-1 flex-col items-center gap-[3px] rounded-[18px] px-1 py-3 transition-all duration-150"
+                  style={selected ? undefined : ({ '--edge': '#E6DCF0' } as React.CSSProperties)}
+                >
+                  <span aria-hidden="true" className="font-sans text-[11px] tracking-[2px]">{d.pips}</span>
+                  <span className="text-lg leading-[1.1]">{d.label}</span>
+                  <span className="font-sans text-[11px] font-extrabold">{d.desc}</span>
+                </Chunky>
+              );
+            })}
+          </div>
         </Section>
       )}
 
-      <Section
-        title="Board"
-        description={mode === 'cpu' ? 'Win a level to unlock the next.' : 'Any level or a custom size.'}
-      >
+      <Section title="Level" description={mode === 'cpu' ? 'Win a level to unlock the next.' : undefined}>
         <BoardPicker value={board} onChange={setBoard} unlockedLevel={mode === 'cpu' ? unlockedLevel : undefined} />
       </Section>
 
-      <Section title="Rules">
-        <div className="flex items-center justify-between rounded-xl bg-card p-3 shadow-sm">
-          <Label htmlFor="extra-turn" className="flex flex-col items-start gap-0.5">
-            <span>Extra turn on capture</span>
-            <span className="text-xs font-normal text-muted-foreground">Completing a box lets you move again</span>
-          </Label>
-          <Switch id="extra-turn" checked={extraTurn} onCheckedChange={setExtraTurn} />
-        </div>
-      </Section>
+      <section className="card-3d flex items-center gap-3 px-4 py-3.5">
+        <label htmlFor="extra-turn" className="flex flex-1 flex-col gap-px">
+          <span className="text-[17px] font-extrabold text-ink">Extra turn on capture</span>
+          <span className="text-[13px] font-bold text-label">Closing a box lets you go again</span>
+        </label>
+        <Switch id="extra-turn" checked={extraTurn} onCheckedChange={setExtraTurn} />
+      </section>
     </PageShell>
   );
 }

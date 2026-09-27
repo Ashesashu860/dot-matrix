@@ -10,6 +10,8 @@ import { navigate } from '@/lib/navigation';
 import { clearSavedGame, loadSavedGame } from '@/persistence/db';
 import { useSession } from '@/stores/session-store';
 
+const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
+
 /** Local and CPU games. Resumes the saved game after a reload. */
 export function PlayScreen() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export function PlayScreen() {
   if (!controller || !setup) {
     return (
       <div className="flex min-h-dvh items-center justify-center" aria-busy="true">
-        {checked ? null : <Loader2 className="size-8 animate-spin text-muted-foreground" />}
+        {checked ? null : <Loader2 className="size-8 animate-spin text-screen-soft" />}
       </div>
     );
   }
@@ -62,7 +64,13 @@ function ActiveGame({ controller }: { controller: GameController }) {
     <GameScreen
       controller={controller}
       perspectiveId={human?.id ?? null}
+      difficulty={setup.difficulty ? DIFFICULTY_LABEL[setup.difficulty] : undefined}
       onExit={exit}
+      onNewGame={() => {
+        void clearSavedGame();
+        useSession.getState().end();
+        navigate(router, `/play/setup?mode=${setup.create.mode}`);
+      }}
       onRematch={() => controller.restart?.()}
       onNextLevel={
         canAdvance && next

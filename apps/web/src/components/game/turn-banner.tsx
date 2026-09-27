@@ -1,42 +1,39 @@
 'use client';
 
-import { AnimatePresence, motion } from 'motion/react';
-import { Loader2, RotateCcw } from 'lucide-react';
 import type { GameView } from '@/controllers/types';
-import { shapeForIndex } from '@/lib/players';
+import { inkOn, shapeForIndex, surfaceEdge, surfaceShade } from '@/lib/players';
 import { PlayerShapeIcon } from './player-shape';
 
+/** Whose turn it is, as a pill in the current player's colour. */
 export function TurnBanner({ view }: { view: GameView }) {
-  const { state, lastEvent, thinking } = view;
+  const { state } = view;
   const current = state.players[state.currentPlayerIndex];
-  if (state.status !== 'playing' || !current) return <div className="h-12" />;
+  if (!current) return <div className="h-[50px]" />;
+  const finished = state.status !== 'playing';
   const mine = view.controllablePlayerIds.includes(current.id);
   const onlyMe = view.controllablePlayerIds.length === 1;
-  const label = mine && onlyMe ? 'Your turn' : `${current.name}'s turn`;
-  const extra = lastEvent?.extraTurn && lastEvent.playerId === current.id;
+  const label = finished
+    ? 'Board complete!'
+    : current.type === 'cpu'
+      ? `${current.name} is thinking…`
+      : mine && onlyMe
+        ? 'Your turn — draw a line'
+        : mine
+          ? `${current.name}'s turn`
+          : `${current.name} is playing…`;
 
   return (
-    <div className="flex h-12 items-center justify-center gap-2" aria-hidden="true">
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={`${current.id}-${state.totalMoves}-${extra ? 'x' : ''}`}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.15 }}
-          className="flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold text-white shadow"
-          style={{ backgroundColor: current.color }}
-        >
-          <PlayerShapeIcon shape={shapeForIndex(state.currentPlayerIndex)} color="white" size={14} />
-          <span className="uppercase tracking-wide">{label}</span>
-          {thinking && <Loader2 className="size-4 animate-spin" />}
-          {extra && (
-            <span className="flex items-center gap-1 rounded-full bg-white/25 px-2 py-0.5 text-xs">
-              <RotateCcw className="size-3" /> Play again!
-            </span>
-          )}
-        </motion.div>
-      </AnimatePresence>
+    <div className="flex justify-center" aria-hidden="true">
+      <div
+        key={`${current.id}-${state.status}`}
+        className="flex items-center gap-2.5 rounded-full py-2.5 pr-[22px] pl-2.5 font-display text-[19px] leading-none font-extrabold animate-[bh-turn_.35s_cubic-bezier(.3,1.6,.5,1)]"
+        style={{ background: surfaceShade(current.color), color: inkOn(current.color), boxShadow: `0 5px 0 ${surfaceEdge(current.color)}` }}
+      >
+        <span className="flex size-[30px] items-center justify-center rounded-full bg-white">
+          <PlayerShapeIcon shape={shapeForIndex(state.currentPlayerIndex)} color={current.color} size={13} />
+        </span>
+        {label}
+      </div>
     </div>
   );
 }

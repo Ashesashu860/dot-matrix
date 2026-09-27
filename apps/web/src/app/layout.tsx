@@ -1,10 +1,11 @@
 import { SerwistProvider } from '@serwist/turbopack/react';
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Baloo_2, Geist_Mono, Nunito } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
-const geistSans = Geist({ variable: '--font-sans', subsets: ['latin'] });
+const nunito = Nunito({ variable: '--font-sans', subsets: ['latin'], weight: ['600', '700', '800', '900'] });
+const baloo = Baloo_2({ variable: '--font-baloo', subsets: ['latin'], weight: ['600', '700', '800'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 const APP_NAME = 'Box Hunt';
@@ -27,16 +28,18 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f5f7fb' },
-    { media: '(prefers-color-scheme: dark)', color: '#0b1020' },
+    { media: '(prefers-color-scheme: light)', color: '#FFF8EC' },
+    { media: '(prefers-color-scheme: dark)', color: '#1B1433' },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full bg-background">
-        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'}>
+    <html lang="en" suppressHydrationWarning className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="min-h-full font-bold">
+        {/* reloadOnOnline off: a reload when the connection returns would cancel an
+            in-flight offline navigation (and needlessly interrupt a game). */}
+        <SerwistProvider swUrl="/serwist/sw.js" disable={process.env.NODE_ENV === 'development'} reloadOnOnline={false}>
           <Providers>{children}</Providers>
         </SerwistProvider>
       </body>

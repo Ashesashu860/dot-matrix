@@ -5,11 +5,28 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
+  --font-display: var(--font-baloo);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-screen: var(--screen-ink);
+  --color-screen-soft: var(--screen-ink-soft);
+  --color-label: #7A6A99;
+  --color-soft: #F6F1FB;
+  --color-soft-edge: #E6DCF0;
+  --color-edge: #EFE3CE;
+  --color-pink: #FF3D7F;
+  --color-pink-d: #D61F63;
+  --color-blue: #1E9BFF;
+  --color-blue-d: #0A73CC;
+  --color-amber: #FFB21E;
+  --color-amber-d: #D98900;
+  --color-green: #21C46B;
+  --color-green-d: #139650;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-baloo);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,72 +66,54 @@
 }
 
 :root {
-  --background: oklch(0.975 0.008 265);
-  --foreground: oklch(0.24 0.04 265);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.24 0.04 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.24 0.04 265);
-  --primary: oklch(0.52 0.19 265);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.94 0.02 265);
-  --secondary-foreground: oklch(0.3 0.06 265);
-  --muted: oklch(0.95 0.012 265);
-  --muted-foreground: oklch(0.5 0.03 265);
-  --accent: oklch(0.93 0.03 265);
-  --accent-foreground: oklch(0.3 0.06 265);
-  --destructive: oklch(0.58 0.22 25);
-  --border: oklch(0.9 0.015 265);
-  --input: oklch(0.9 0.015 265);
-  --ring: oklch(0.6 0.18 265);
-  --chart-1: oklch(0.6 0.19 265);
-  --chart-2: oklch(0.65 0.2 20);
-  --chart-3: oklch(0.65 0.15 160);
-  --chart-4: oklch(0.75 0.15 75);
-  --chart-5: oklch(0.55 0.2 300);
+  /* Box Hunt palette (Claude Design handoff). Cards stay white in both themes. */
+  --app-bg: #FFF8EC;
+  --app-dots: #F5E7CF;
+  --ink: #2B1B4A;
+  --ink-soft: #6E5E8D;
+  --screen-ink: #2B1B4A;
+  --screen-ink-soft: #6E5E8D;
+
+  --background: var(--app-bg);
+  --foreground: var(--screen-ink);
+  --card: #FFFFFF;
+  --card-foreground: var(--ink);
+  --popover: #FFFFFF;
+  --popover-foreground: var(--ink);
+  --primary: #FF3D7F;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F6F1FB;
+  --secondary-foreground: var(--ink);
+  --muted: #F6F1FB;
+  --muted-foreground: #7A6A99;
+  --accent: #F6F1FB;
+  --accent-foreground: var(--ink);
+  --destructive: #D61F63;
+  --border: #F3EEF8;
+  --input: #F6F1FB;
+  --ring: #7B5CFF;
+  --chart-1: #FF3D7F;
+  --chart-2: #1E9BFF;
+  --chart-3: #FFB21E;
+  --chart-4: #21C46B;
+  --chart-5: #7B5CFF;
   --radius: 1rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: #FF3D7F;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #F6F1FB;
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: #F3EEF8;
+  --sidebar-ring: #7B5CFF;
 }
 
 .dark {
-  --background: oklch(0.17 0.03 265);
-  --foreground: oklch(0.95 0.01 265);
-  --card: oklch(0.22 0.035 265);
-  --card-foreground: oklch(0.95 0.01 265);
-  --popover: oklch(0.22 0.035 265);
-  --popover-foreground: oklch(0.95 0.01 265);
-  --primary: oklch(0.68 0.16 265);
-  --primary-foreground: oklch(0.15 0.03 265);
-  --secondary: oklch(0.28 0.04 265);
-  --secondary-foreground: oklch(0.95 0.01 265);
-  --muted: oklch(0.27 0.035 265);
-  --muted-foreground: oklch(0.72 0.03 265);
-  --accent: oklch(0.3 0.05 265);
-  --accent-foreground: oklch(0.95 0.01 265);
-  --destructive: oklch(0.7 0.19 22);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.68 0.16 265);
-  --chart-1: oklch(0.7 0.16 265);
-  --chart-2: oklch(0.7 0.18 20);
-  --chart-3: oklch(0.7 0.14 160);
-  --chart-4: oklch(0.8 0.14 75);
-  --chart-5: oklch(0.65 0.18 300);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --app-bg: #1B1433;
+  --app-dots: #2C2350;
+  --screen-ink: #FFF6EA;
+  --screen-ink-soft: #C9BCE6;
+  color-scheme: dark;
 }
 
 @layer base {
@@ -145,6 +144,72 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
+
+@layer base {
+  body {
+    background-color: var(--app-bg);
+    background-image: radial-gradient(var(--app-dots) 1.4px, transparent 1.4px);
+    background-size: 18px 18px;
+    -webkit-font-smoothing: antialiased;
+    transition: background-color 0.3s;
+  }
+  :focus-visible {
+    outline: 3px solid var(--ring);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  /* Chunky "3D" button: a solid bottom edge that collapses when pressed. */
+  .btn-3d {
+    --edge: #E8DCC6;
+    --lift: 5px;
+    box-shadow: 0 var(--lift) 0 var(--edge), var(--glow, 0 0 transparent);
+    transition: transform 0.08s, box-shadow 0.08s, background-color 0.15s, color 0.15s;
+  }
+  .btn-3d:not(:disabled):not([aria-disabled='true']):active {
+    transform: translateY(calc(var(--lift) - 1px));
+    box-shadow: 0 1px 0 var(--edge);
+  }
+  .card-3d {
+    background: #fff;
+    color: var(--ink);
+    border-radius: 24px;
+    box-shadow: 0 5px 0 var(--color-edge);
+  }
+  .card-label {
+    font-weight: 900;
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: #7A6A99;
+  }
+}
+
+/* The Animations setting turns off decorative CSS motion as well. */
+[data-anim='off'] *,
+[data-anim='off'] *::before,
+[data-anim='off'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@keyframes bh-cell { 0% { transform: scale(0) rotate(-14deg); } 60% { transform: scale(1.16) rotate(3deg); } 100% { transform: scale(1); } }
+@keyframes bh-burst { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2) rotate(220deg); opacity: 0; } }
+@keyframes bh-float { 0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; } 20% { opacity: 1; transform: translate(-50%, -110%) scale(1.25); } 100% { transform: translate(-50%, -240%) scale(1); opacity: 0; } }
+@keyframes bh-ring { 0% { transform: translate(-50%, -50%) scale(0.3); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(2.4); opacity: 0; } }
+@keyframes bh-flash { 0% { transform: translate(-50%, -50%) scale(0.2) rotate(-14deg); opacity: 0; } 18% { transform: translate(-50%, -50%) scale(1.2) rotate(-4deg); opacity: 1; } 32% { transform: translate(-50%, -50%) scale(1) rotate(-4deg); } 75% { opacity: 1; transform: translate(-50%, -50%) scale(1) rotate(-4deg); } 100% { opacity: 0; transform: translate(-50%, -90%) scale(0.9) rotate(-4deg); } }
+@keyframes bh-pop { 0% { transform: scale(1); } 35% { transform: scale(1.75); } 100% { transform: scale(1); } }
+@keyframes bh-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-14px); } }
+@keyframes bh-spin { to { transform: rotate(360deg); } }
+@keyframes bh-fall { 0% { transform: translateY(-40px) rotate(0); } 100% { transform: translateY(110vh) rotate(760deg); } }
+@keyframes bh-pulse { 0%, 100% { opacity: 0.12; } 50% { opacity: 0.42; } }
+@keyframes bh-turn { 0% { transform: translateY(14px) scale(0.85); opacity: 0; } 100% { transform: none; opacity: 1; } }
+@keyframes bh-logo { 0%, 12% { transform: scale(0); } 22% { transform: scale(1.18); } 28%, 86% { transform: scale(1); } 94%, 100% { transform: scale(0); } }
+@keyframes bh-rise { from { transform: translateY(22px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes bh-wiggle { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+@keyframes bh-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }

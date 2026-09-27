@@ -8,7 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { GameScreen } from '@/components/game/game-screen';
 import { PageShell } from '@/components/page-shell';
-import { Button } from '@/components/ui/button';
+import { Chunky } from '@/components/kit';
 import { OnlineController } from '@/controllers/online-controller';
 import { api } from '@/firebase/api';
 import { ensureSignedIn, getFirebase } from '@/firebase/client';
@@ -111,6 +111,7 @@ export function RoomScreen() {
 }
 
 function OnlineGame({ controller, uid, onExit }: { controller: OnlineController; uid: string; onExit(): void }) {
+  const router = useRouter();
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
   const recorded = useRef<string | null>(null);
 
@@ -121,27 +122,34 @@ function OnlineGame({ controller, uid, onExit }: { controller: OnlineController;
     void useProgress.getState().recordGame(view.state, uid);
   }, [view.state, uid]);
 
-  return <GameScreen controller={controller} perspectiveId={uid} onExit={onExit} online />;
+  return (
+    <GameScreen
+      controller={controller}
+      perspectiveId={uid}
+      onExit={onExit}
+      onNewGame={() => navigate(router, '/online')}
+      online
+    />
+  );
 }
 
 function Spinner() {
   return (
     <div className="flex min-h-dvh items-center justify-center" aria-busy="true">
-      <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <Loader2 className="size-8 animate-spin text-screen-soft" />
     </div>
   );
 }
 
 function RoomMessage({ message }: { message: string }) {
   return (
-    <PageShell title="Online Game" backHref="/online">
-      <div className="flex flex-col items-center gap-4 rounded-2xl bg-card p-6 text-center shadow-sm">
-        <p>{message}</p>
-        <Button asChild>
+    <PageShell title="Online" backHref="/online">
+      <section className="card-3d flex flex-col items-center gap-4 p-6 text-center">
+        <p className="text-[17px] font-extrabold text-ink">{message}</p>
+        <Chunky asChild tone="pink" className="flex h-12 items-center rounded-[18px] px-6 text-lg">
           <Link href="/online">Back</Link>
-        </Button>
-      </div>
+        </Chunky>
+      </section>
     </PageShell>
   );
 }
-

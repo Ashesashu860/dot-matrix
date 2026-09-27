@@ -1,18 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#3b5bdb"/>
-  <rect x="156" y="156" width="100" height="100" rx="14" fill="#fcc419" fill-opacity="0.9"/>
-  <rect x="256" y="256" width="100" height="100" rx="14" fill="#ff6b6b" fill-opacity="0.9"/>
-  <g stroke="#fff" stroke-width="18" stroke-linecap="round">
-    <line x1="156" y1="156" x2="356" y2="156"/>
-    <line x1="156" y1="156" x2="156" y2="356"/>
-    <line x1="256" y1="156" x2="256" y2="356"/>
-    <line x1="156" y1="256" x2="356" y2="256"/>
-    <line x1="356" y1="256" x2="356" y2="356"/>
-    <line x1="256" y1="356" x2="356" y2="356"/>
-  </g>
-  <g fill="#fff">
-    <circle cx="156" cy="156" r="22"/><circle cx="256" cy="156" r="22"/><circle cx="356" cy="156" r="22"/>
-    <circle cx="156" cy="256" r="22"/><circle cx="256" cy="256" r="22"/><circle cx="356" cy="256" r="22"/>
-    <circle cx="156" cy="356" r="22"/><circle cx="256" cy="356" r="22"/><circle cx="356" cy="356" r="22"/>
+  <rect width="512" height="512" rx="112" fill="#FFEFD2"/>
+  <g transform="rotate(-5 256 256)">
+    <rect x="76" y="90" width="360" height="360" rx="72" fill="#EFE3CE"/>
+    <rect x="76" y="76" width="360" height="360" rx="72" fill="#fff"/>
+    <rect x="130" y="130" width="112" height="112" rx="24" fill="#FF3D7F"/>
+    <rect x="270" y="130" width="112" height="112" rx="24" fill="#1E9BFF"/>
+    <rect x="130" y="270" width="112" height="112" rx="24" fill="#FFB21E"/>
+    <rect x="270" y="270" width="112" height="112" rx="24" fill="#21C46B"/>
+    <g fill="#2B1B4A">
+      <circle cx="116" cy="116" r="18"/><circle cx="256" cy="116" r="18"/><circle cx="396" cy="116" r="18"/>
+      <circle cx="116" cy="256" r="18"/><circle cx="256" cy="256" r="18"/><circle cx="396" cy="256" r="18"/>
+      <circle cx="116" cy="396" r="18"/><circle cx="256" cy="396" r="18"/><circle cx="396" cy="396" r="18"/>
+    </g>
   </g>
 </svg>

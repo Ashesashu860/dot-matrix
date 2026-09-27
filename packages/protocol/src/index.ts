@@ -18,7 +18,7 @@ export const PRESENCE_GRACE_MS = 60_000;
 export const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
 export const ROOM_CREATE_LIMIT = { capacity: 5, refillPerMinute: 1 } as const;
 
-export const PLAYER_COLORS = ['#2563eb', '#e11d48', '#059669', '#d97706'] as const;
+export const PLAYER_COLORS = ['#FF3D7F', '#1E9BFF', '#FFB21E', '#21C46B'] as const;
 
 export const CALLABLE_REGION = 'us-central1';
 

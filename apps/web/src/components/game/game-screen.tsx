@@ -1,23 +1,18 @@
 'use client';
 
-import { getLevel } from '@dots/game-engine';
+import { cellCount, getLevel } from '@dots/game-engine';
 import { ERROR_MESSAGES } from '@dots/protocol';
 import type { ProtocolErrorCode } from '@dots/protocol';
-import { ArrowLeft, Loader2, LogOut, Pause, Play, RotateCcw, WifiOff } from 'lucide-react';
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { Loader2, WifiOff } from 'lucide-react';
+import { Dialog as DialogPrimitive } from 'radix-ui';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { GameBoard } from '@/components/board/game-board';
-import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Chunky, RoundButton } from '@/components/kit';
 import { canInteract } from '@/controllers/types';
 import type { GameController } from '@/controllers/types';
+import { viewBoxSize } from '@/lib/board-geometry';
+import { formatClock } from '@/lib/players';
 import { ResultDialog } from './result-dialog';
 import { Scoreboard } from './scoreboard';
 import { TurnBanner } from './turn-banner';
@@ -27,28 +22,73 @@ export interface GameScreenProps {
   controller: GameController;
   /** Player whose perspective drives "You win" (CPU human / online self). */
   perspectiveId: string | null;
+  /** CPU difficulty label, e.g. "Medium". */
+  difficulty?: string;
   onExit(): void;
   onRematch?: () => void;
   onNextLevel?: () => void;
+  onNewGame?: () => void;
   /** Online: leaving forfeits, so it is labelled and confirmed differently. */
   online?: boolean;
 }
 
-export function GameScreen({ controller, perspectiveId, onExit, onRematch, onNextLevel, online }: GameScreenProps) {
+/** Room left for everything above and below the board. */
+const BOARD_MAX_HEIGHT = 'max(240px, calc(100dvh - 24rem))';
+
+/** Elapsed play time; stops while paused and once the game ends. */
+function useElapsed(startedAt: number | undefined, endedAt: number | undefined, paused: boolean) {
+  const [elapsed, setElapsed] = useState(0);
+  const pausedTotal = useRef(0);
+  const pausedSince = useRef<number | null>(null);
+
+  useEffect(() => {
+    pausedTotal.current = 0;
+    pausedSince.current = null;
+  }, [startedAt]);
+
+  useEffect(() => {
+    if (!startedAt) return;
+    const tick = () => setElapsed((endedAt ?? Date.now()) - startedAt - pausedTotal.current);
+    if (paused) {
+      pausedSince.current ??= Date.now();
+    } else if (pausedSince.current !== null) {
+      pausedTotal.current += Date.now() - pausedSince.current;
+      pausedSince.current = null;
+    }
+    tick();
+    if (paused || endedAt) return;
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [startedAt, endedAt, paused]);
+
+  return elapsed;
+}
+
+export function GameScreen({
+  controller,
+  perspectiveId,
+  difficulty,
+  onExit,
+  onRematch,
+  onNextLevel,
+  onNewGame,
+  online,
+}: GameScreenProps) {
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
   const { state } = view;
   const [menuOpen, setMenuOpen] = useState(false);
-  /** gameId whose result dialog is open (a rematch has a new gameId, so it closes). */
+  /** gameId whose result screen is open (a rematch has a new gameId, so it closes). */
   const [resultFor, setResultFor] = useState<string | null>(null);
   const resultOpen = state.status === 'finished' && resultFor === state.gameId;
   const announcement = useMoveFeedback(view);
   const interactive = canInteract(view);
+  const elapsed = useElapsed(state.startedAt, state.endedAt, view.paused);
 
-  // Show results shortly after the final move so the last animation is visible.
+  // Show results shortly after the final move so the last celebration is visible.
   useEffect(() => {
     if (state.status !== 'finished') return;
     const gameId = state.gameId;
-    const t = setTimeout(() => setResultFor(gameId), 700);
+    const t = setTimeout(() => setResultFor(gameId), 1100);
     return () => clearTimeout(t);
   }, [state.status, state.gameId]);
 
@@ -77,25 +117,48 @@ export function GameScreen({ controller, perspectiveId, onExit, onRematch, onNex
     return () => window.removeEventListener('keydown', onKey);
   }, [menuOpen, openMenu, state.status]);
 
-  const levelLabel = getLevel(state.level) ? `Level ${state.level}` : `${state.rows}×${state.columns}`;
+  const isLevel = !!getLevel(state.level);
+  const modeLabel = state.mode === 'cpu' ? `${difficulty ?? ''} CPU`.trim() : state.mode === 'local' ? 'Local' : 'Online';
+  const total = cellCount(state.rows, state.columns);
+  const claimed = state.players.reduce((sum, p) => sum + p.score, 0);
+  const { width, height } = viewBoxSize({ rows: state.rows, columns: state.columns });
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-xl flex-col gap-3 px-3 pb-6 pt-[max(env(safe-area-inset-top),0.75rem)]">
-      <header className="flex items-center justify-between gap-2">
-        <Button variant="ghost" size="icon" onClick={openMenu} aria-label="Back">
-          <ArrowLeft />
-        </Button>
-        <div className="text-center">
-          <h1 className="text-base font-bold tracking-tight">Box Hunt</h1>
-          <p className="text-xs text-muted-foreground">{levelLabel}</p>
+    <div className="mx-auto flex min-h-dvh w-full max-w-[430px] flex-col gap-4 px-5 pt-[max(env(safe-area-inset-top),6px)] pb-[max(env(safe-area-inset-bottom),24px)]">
+      <header className="flex items-center gap-3 pt-1.5">
+        <RoundButton label="Pause" onClick={openMenu}>
+          <span className="flex gap-[5px]" aria-hidden="true">
+            <span className="h-4 w-[5px] rounded-[3px] bg-ink" />
+            <span className="h-4 w-[5px] rounded-[3px] bg-ink" />
+          </span>
+        </RoundButton>
+        <div className="flex min-w-0 flex-1 flex-col items-center text-center">
+          <h1 className="font-display text-[26px] leading-none font-extrabold text-screen">
+            {isLevel ? `Level ${state.level}` : 'Custom board'}
+          </h1>
+          <p className="text-xs font-extrabold whitespace-nowrap text-screen-soft">
+            {state.rows}×{state.columns} · {modeLabel}
+          </p>
         </div>
-        <Button variant="ghost" size="icon" onClick={openMenu} aria-label="Pause menu" disabled={state.status !== 'playing'}>
-          <Pause />
-        </Button>
+        <div className="flex w-16 flex-col items-end gap-1">
+          <span
+            className="rounded-full bg-white px-2.5 py-1.5 text-sm font-extrabold text-ink tabular-nums shadow-[0_3px_0_#EADFCB]"
+            aria-label={`Time ${formatClock(elapsed)}`}
+            role="timer"
+          >
+            {formatClock(elapsed)}
+          </span>
+          {online && view.connection === 'connected' && (
+            <span className="flex items-center gap-1 text-[10px] font-black text-[#0F7A40]">
+              <span className="size-[7px] rounded-full bg-green" />
+              LIVE
+            </span>
+          )}
+        </div>
       </header>
 
       {view.connection !== 'connected' && (
-        <div role="status" className="flex items-center justify-center gap-2 rounded-xl bg-amber-500/15 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+        <div role="status" className="flex items-center justify-center gap-2 rounded-2xl bg-amber px-3 py-2 text-sm font-extrabold text-ink shadow-[0_4px_0_#D98900]">
           {view.connection === 'offline' ? <WifiOff className="size-4" /> : <Loader2 className="size-4 animate-spin" />}
           {view.connection === 'offline' ? 'You are offline. Reconnecting…' : 'Reconnecting…'}
         </div>
@@ -107,16 +170,42 @@ export function GameScreen({ controller, perspectiveId, onExit, onRematch, onNex
         localPlayerIds={online ? view.controllablePlayerIds : []}
       />
 
-      <main className="flex flex-1 items-center justify-center">
-        <GameBoard
-          state={state}
-          interactive={interactive}
-          pendingEdgeId={view.pendingEdgeId}
-          lastEvent={view.lastEvent}
-          onSelect={controller.submitMove.bind(controller)}
-          className="max-h-[calc(100dvh-15rem)] max-w-full drop-shadow-sm"
-        />
+      <main className="flex flex-1 flex-col justify-center">
+        <div
+          className="self-center rounded-[30px] bg-white p-3 shadow-[0_8px_0_#EFE3CE,0_20px_40px_-18px_rgba(43,27,74,.35)]"
+          style={{ width: `min(100%, calc(${BOARD_MAX_HEIGHT} * ${width / height} + 24px))` }}
+        >
+          <GameBoard
+            state={state}
+            interactive={interactive}
+            pendingEdgeId={view.pendingEdgeId}
+            lastEvent={view.lastEvent}
+            onSelect={controller.submitMove.bind(controller)}
+          />
+        </div>
       </main>
+
+      <div className="flex flex-col gap-1.5">
+        <div
+          className="flex h-3.5 gap-0.5 overflow-hidden rounded-full bg-white p-0.5 shadow-[inset_0_2px_0_#EFE3CE]"
+          role="progressbar"
+          aria-label="Boxes claimed"
+          aria-valuemin={0}
+          aria-valuemax={total}
+          aria-valuenow={claimed}
+        >
+          {state.players.map((p) => (
+            <div
+              key={p.id}
+              className="h-full rounded-full transition-[width] duration-400 ease-[cubic-bezier(.3,1.6,.5,1)]"
+              style={{ width: `${(p.score / total) * 100}%`, background: p.color }}
+            />
+          ))}
+        </div>
+        <p className="text-center text-xs font-extrabold text-screen-soft">
+          {claimed} / {total} boxes claimed
+        </p>
+      </div>
 
       <TurnBanner view={view} />
       <div aria-live="polite" aria-atomic="true" className="sr-only">
@@ -124,56 +213,60 @@ export function GameScreen({ controller, perspectiveId, onExit, onRematch, onNex
       </div>
 
       {state.status === 'finished' && !resultOpen && (
-        <Button size="lg" onClick={() => setResultFor(state.gameId)}>
+        <Chunky tone="pink" lift={6} onClick={() => setResultFor(state.gameId)} className="h-14 rounded-[20px] text-xl">
           Show results
-        </Button>
+        </Chunky>
       )}
 
-      <Sheet open={menuOpen} onOpenChange={(open) => (open ? openMenu() : closeMenu())}>
-        <SheetContent side="bottom" className="rounded-t-3xl pb-[max(env(safe-area-inset-bottom),1rem)]">
-          <SheetHeader>
-            <SheetTitle>{online ? 'Menu' : 'Paused'}</SheetTitle>
-            <SheetDescription>
-              {online ? 'The online game keeps running while this menu is open.' : 'The game is paused.'}
-            </SheetDescription>
-          </SheetHeader>
-          <SheetFooter className="gap-2">
-            <Button size="lg" onClick={closeMenu}>
-              <Play /> Resume
-            </Button>
-            {controller.restart && (
-              <Button
-                size="lg"
-                variant="outline"
+      <DialogPrimitive.Root open={menuOpen} onOpenChange={(open) => (open ? openMenu() : closeMenu())}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgba(43,27,74,.55)] backdrop-blur-[6px]" />
+          <DialogPrimitive.Content className="fixed top-1/2 left-1/2 z-50 flex w-[calc(100%-48px)] max-w-[382px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-3 rounded-[32px] bg-white px-[22px] pt-7 pb-6 shadow-[0_10px_0_#E3D6EF] outline-none">
+            <div className="flex w-full flex-col items-center gap-3 animate-[bh-turn_.3s_cubic-bezier(.3,1.6,.5,1)]">
+              <DialogPrimitive.Title className="font-display text-[44px] leading-none font-extrabold text-ink">Paused</DialogPrimitive.Title>
+              <DialogPrimitive.Description className={online ? 'text-center text-[13px] leading-snug font-extrabold text-label' : 'sr-only'}>
+                {online ? 'Online matches keep running — opponents can still move.' : 'The game is paused.'}
+              </DialogPrimitive.Description>
+              <Chunky tone="pink" lift={6} onClick={closeMenu} className="mt-1.5 h-[62px] w-full rounded-[22px] text-2xl">
+                Resume
+              </Chunky>
+              {controller.restart && (
+                <Chunky
+                  tone="soft"
+                  onClick={() => {
+                    controller.restart?.();
+                    setMenuOpen(false);
+                  }}
+                  className="h-[54px] w-full rounded-[20px] text-xl"
+                >
+                  Restart
+                </Chunky>
+              )}
+              <Chunky
+                tone="soft"
                 onClick={() => {
-                  controller.restart?.();
                   setMenuOpen(false);
+                  onExit();
                 }}
+                className="h-[54px] w-full rounded-[20px] text-xl"
+                style={online ? { color: '#D61F63' } : undefined}
               >
-                <RotateCcw /> Restart
-              </Button>
-            )}
-            <Button
-              size="lg"
-              variant={online ? 'destructive' : 'ghost'}
-              onClick={() => {
-                setMenuOpen(false);
-                onExit();
-              }}
-            >
-              <LogOut /> {online ? 'Leave game (forfeit)' : 'Exit to home'}
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+                {online ? 'Leave game (forfeit)' : 'Exit to home'}
+              </Chunky>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
 
       <ResultDialog
         state={state}
         open={resultOpen}
         onOpenChange={(open) => setResultFor(open ? state.gameId : null)}
         perspectiveId={perspectiveId}
+        modeLabel={state.mode === 'cpu' ? (difficulty ?? 'CPU') : modeLabel}
         onRematch={onRematch}
         onNextLevel={onNextLevel}
+        onNewGame={onNewGame}
         onHome={onExit}
       />
     </div>

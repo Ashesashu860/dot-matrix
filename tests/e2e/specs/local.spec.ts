@@ -5,7 +5,7 @@ import { claimedCount, startLocalGame, tapEdge } from './helpers';
 test('home offers every mode without an account', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Box Hunt' })).toBeVisible();
-  for (const name of ['Play vs CPU', 'Local Game', 'Online Game']) {
+  for (const name of ['Play vs CPU', 'Local Game', 'Online']) {
     await expect(page.getByRole('link', { name: new RegExp(name) })).toBeVisible();
   }
   await page.screenshot({ path: 'test-results/home.png', fullPage: true });
@@ -56,7 +56,7 @@ test('an interrupted local game resumes after reload', async ({ page }) => {
 test('the CPU replies to the human', async ({ page }) => {
   await page.goto('/play/setup?mode=cpu');
   await page.getByRole('radio', { name: 'Easy' }).click();
-  await page.getByRole('button', { name: 'Start game' }).click();
+  await page.getByRole('button', { name: /Start level/ }).click();
   await expect(page.locator('[data-edge]')).toHaveCount(24);
   await tapEdge(page, 'H-0-0');
   // One human move plus at least one CPU move.
@@ -66,13 +66,15 @@ test('the CPU replies to the human', async ({ page }) => {
 
 test('pause menu pauses and resumes', async ({ page }) => {
   await startLocalGame(page);
-  await page.getByRole('button', { name: 'Pause menu' }).click();
+  await page.getByRole('button', { name: 'Pause' }).click();
   await expect(page.getByRole('dialog', { name: 'Paused' })).toBeVisible();
   await page.getByRole('button', { name: 'Resume' }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
 test('no serious accessibility violations on home, setup and game', async ({ page }) => {
+  // Measure settled screens, not the fade-in (which axe would read as low contrast).
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const url of ['/', '/play/setup?mode=local', '/how-to-play', '/settings']) {
     await page.goto(url);
     await page.waitForTimeout(300);

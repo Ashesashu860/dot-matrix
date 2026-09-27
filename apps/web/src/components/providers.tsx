@@ -19,6 +19,9 @@ function SettingsEffects({ children }: { children: ReactNode }) {
   const musicVolume = useSettings((s) => s.musicVolume);
 
   useEffect(() => setSoundVolume(soundVolume), [soundVolume]);
+  useEffect(() => {
+    document.documentElement.dataset.anim = animations ? 'on' : 'off';
+  }, [animations]);
   useEffect(() => setMusicVolume(musicVolume), [musicVolume]);
 
   useEffect(() => {

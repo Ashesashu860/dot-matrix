@@ -34,9 +34,9 @@ async function joinRoom(page: Page, code: string) {
 }
 
 async function startGame(host: Page, guest: Page) {
-  await guest.getByRole('button', { name: /I.m ready/ }).click();
-  await expect(host.getByRole('button', { name: 'Start game' })).toBeEnabled({ timeout: 10_000 });
-  await host.getByRole('button', { name: 'Start game' }).click();
+  await guest.getByRole('button', { name: 'Ready?' }).click();
+  await expect(host.getByRole('button', { name: /Start match/ })).toBeEnabled({ timeout: 10_000 });
+  await host.getByRole('button', { name: /Start match/ }).click();
   for (const p of [host, guest]) await expect(p.getByRole('group', { name: /Game board/ })).toBeVisible({ timeout: 10_000 });
 }
 
