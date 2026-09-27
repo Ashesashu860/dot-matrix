@@ -42,4 +42,30 @@ const serwist = new Serwist({
   },
 });
 
+/**
+ * Turbopack's worker bootstrap (used by the CPU Web Worker) reads its config
+ * from the `#params=` fragment of its own URL. A worker's `location` comes from
+ * the response URL, and precached responses carry the URL without the fragment,
+ * so the bootstrap throws "Missing worker bootstrap config". Serve it as a new
+ * response instead: with no URL of its own, the worker keeps the requested URL
+ * and its fragment. Registered before Serwist's listener, which it then skips.
+ */
+const WORKER_BOOTSTRAP = /^\/_next\/static\/chunks\/turbopack-worker-[^/]+\.js$/;
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin || !WORKER_BOOTSTRAP.test(url.pathname)) return;
+  event.stopImmediatePropagation();
+  event.respondWith(
+    (async () => {
+      const response = (await serwist.matchPrecache(url.pathname)) ?? (await fetch(event.request));
+      return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    })(),
+  );
+});
+
 serwist.addEventListeners();
