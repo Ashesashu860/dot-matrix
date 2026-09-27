@@ -35,7 +35,7 @@ export function HomeScreen() {
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-6 px-4 pb-8 pt-[max(env(safe-area-inset-top),2rem)]">
       <section className="flex flex-col items-center gap-3 pt-6 text-center">
         <BrandLogo size={140} />
-        <h1 className="text-4xl font-extrabold tracking-tight">Dots Matrix</h1>
+        <h1 className="text-4xl font-extrabold tracking-tight">Box Hunt</h1>
         <p className="text-lg text-primary">Connect. Capture. Conquer.</p>
       </section>
 

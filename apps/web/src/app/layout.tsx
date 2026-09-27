@@ -7,7 +7,7 @@ import './globals.css';
 const geistSans = Geist({ variable: '--font-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
-const APP_NAME = 'Dots Matrix';
+const APP_NAME = 'Box Hunt';
 const DESCRIPTION = 'Connect. Capture. Conquer. A dots-and-boxes strategy game for 2–4 players.';
 
 export const metadata: Metadata = {

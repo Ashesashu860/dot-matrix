@@ -1,4 +1,4 @@
-# Dots Matrix
+# Box Hunt
 
 **Connect. Capture. Conquer.** A mobile-first dots-and-boxes strategy game: play the CPU, pass-and-play with 2–4 friends on one device, or play online with a room code. It is an installable PWA, and CPU and local games work fully offline.
 

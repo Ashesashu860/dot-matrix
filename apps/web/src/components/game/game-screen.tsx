@@ -86,7 +86,7 @@ export function GameScreen({ controller, perspectiveId, onExit, onRematch, onNex
           <ArrowLeft />
         </Button>
         <div className="text-center">
-          <h1 className="text-base font-bold tracking-tight">Dots Matrix</h1>
+          <h1 className="text-base font-bold tracking-tight">Box Hunt</h1>
           <p className="text-xs text-muted-foreground">{levelLabel}</p>
         </div>
         <Button variant="ghost" size="icon" onClick={openMenu} aria-label="Pause menu" disabled={state.status !== 'playing'}>

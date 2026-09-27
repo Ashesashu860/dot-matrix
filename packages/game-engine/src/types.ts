@@ -1,5 +1,5 @@
 /**
- * Core domain types for Dots Matrix.
+ * Core domain types for Box Hunt.
  *
  * Every type here is plain JSON (no Maps, classes or Dates) so a GameState can be
  * stored as-is in Firestore or IndexedDB and posted to a Web Worker.

@@ -66,6 +66,7 @@ interface DotsDB extends DBSchema {
   };
 }
 
+// Keeps the pre-rename name so existing players' saves, stats and settings survive.
 const DB_NAME = 'dots-matrix';
 const DB_VERSION = 1;
 export const HISTORY_LIMIT = 100;

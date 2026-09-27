@@ -7,7 +7,7 @@ import path from 'node:path';
 const root = path.join(import.meta.dirname, '..');
 const pkg = JSON.parse(await readFile(path.join(root, 'package.json'), 'utf8'));
 const manifest = {
-  name: 'dots-matrix-functions',
+  name: 'box-hunt-functions',
   private: true,
   main: 'index.cjs',
   engines: { node: '22' },

@@ -9,6 +9,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+// Pre-rename key, kept so a dismissed hint stays dismissed.
 const DISMISS_KEY = 'dots-matrix:install-dismissed';
 
 function isStandalone() {
@@ -65,7 +66,7 @@ export function InstallHint() {
     <div className="flex items-start gap-3 rounded-2xl border bg-card p-3 text-sm shadow-sm">
       <Download className="mt-0.5 size-5 shrink-0 text-primary" />
       <div className="flex-1">
-        <p className="font-medium">Install Dots Matrix</p>
+        <p className="font-medium">Install Box Hunt</p>
         {prompt ? (
           <p className="text-muted-foreground">Play offline from your home screen.</p>
         ) : (
