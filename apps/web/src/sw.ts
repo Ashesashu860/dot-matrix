@@ -59,7 +59,8 @@ const serwist = new Serwist({
  * response instead: with no URL of its own, the worker keeps the requested URL
  * and its fragment. Registered before Serwist's listener, which it then skips.
  */
-const WORKER_BOOTSTRAP = /^\/_next\/static\/chunks\/turbopack-worker-[^/]+\.js$/;
+// Vercel serves static chunks from /_next/static/immutable/chunks/, locally /_next/static/chunks/.
+const WORKER_BOOTSTRAP = /^\/_next\/static\/(?:[^/]+\/)*turbopack-worker-[^/]+\.js$/;
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);

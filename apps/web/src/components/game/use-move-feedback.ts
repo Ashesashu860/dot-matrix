@@ -7,9 +7,10 @@ import { useSettings } from '@/stores/settings-store';
 
 /**
  * Sounds, haptics and a screen-reader announcement for each move (§9.3, §8.4).
- * Returns the text for an aria-live region.
+ * Returns the text for an aria-live region. At game over, `perspectiveId` (the
+ * player on this device, or null for pass-and-play) picks the win or lose tune.
  */
-export function useMoveFeedback(view: GameView): string {
+export function useMoveFeedback(view: GameView, perspectiveId: string | null): string {
   const sound = useSettings((s) => s.sound);
   const vibration = useSettings((s) => s.vibration);
   const [announcement, setAnnouncement] = useState('');
@@ -24,7 +25,12 @@ export function useMoveFeedback(view: GameView): string {
     const next = state.players[state.currentPlayerIndex];
     const captured = event.completedCells.length;
 
-    if (sound) playSound(event.gameOver ? 'win' : captured ? 'capture' : 'line');
+    if (sound) {
+      // Someone always wins pass-and-play and draws; only a watched player can lose.
+      const lost =
+        perspectiveId !== null && !state.isDraw && !(state.winnerIds ?? []).includes(perspectiveId);
+      playSound(event.gameOver ? (lost ? 'lose' : 'win') : captured ? 'capture' : 'line');
+    }
     if (vibration && captured) vibrate(event.gameOver ? [40, 60, 40, 60, 120] : 35);
 
     let text = `${mover?.name ?? 'A player'} drew a line.`;
@@ -41,7 +47,7 @@ export function useMoveFeedback(view: GameView): string {
     }
     const scores = state.players.map((p) => `${p.name} ${p.score}`).join(', ');
     setAnnouncement(`${text} Scores: ${scores}.`);
-  }, [event, view, sound, vibration]);
+  }, [event, view, sound, vibration, perspectiveId]);
 
   useEffect(() => {
     if (view.error && sound) playSound('error');

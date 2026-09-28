@@ -1,0 +1,11 @@
+# Local build output and test artefacts; Vercel builds from source.
+**/.next
+**/node_modules
+**/test-results
+**/playwright-report
+.firebase
+*.log
+.env.local
+apps/web/public/sw.js
+apps/web/public/sw.js.map
+apps/web/public/swe-worker-*.js

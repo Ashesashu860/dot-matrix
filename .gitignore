@@ -2,7 +2,7 @@ node_modules/
 .next/
 out/
 dist/
-lib/
+/lib/
 coverage/
 *.tsbuildinfo
 .env
@@ -20,3 +20,5 @@ apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker-*.js
 .DS_Store
+.vercel
+.env*

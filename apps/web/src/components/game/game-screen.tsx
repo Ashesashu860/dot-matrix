@@ -83,7 +83,7 @@ export function GameScreen({
   /** gameId whose result screen is open (a rematch has a new gameId, so it closes). */
   const [resultFor, setResultFor] = useState<string | null>(null);
   const resultOpen = state.status === 'finished' && resultFor === state.gameId;
-  const announcement = useMoveFeedback(view);
+  const announcement = useMoveFeedback(view, perspectiveId);
   const interactive = canInteract(view);
   const elapsed = useElapsed(state.startedAt, state.endedAt, view.paused);
 
