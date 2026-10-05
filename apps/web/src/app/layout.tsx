@@ -9,6 +9,12 @@ const baloo = Baloo_2({ variable: '--font-baloo', subsets: ['latin'], weight: ['
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 const APP_NAME = 'Dotsnatch';
+
+/**
+ * Chrome can fire `beforeinstallprompt` before the app bundle runs, so hold on to it
+ * from the start; `use-install-prompt` picks it up from `window.__installPrompt`.
+ */
+const CAPTURE_INSTALL_PROMPT = `addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__installPrompt=e;dispatchEvent(new Event('installpromptready'))})`;
 const DESCRIPTION = 'Connect. Capture. Conquer. A dots-and-boxes strategy game for 2–4 players.';
 
 export const metadata: Metadata = {
@@ -36,6 +42,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${nunito.variable} ${baloo.variable} ${geistMono.variable} h-full antialiased`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: CAPTURE_INSTALL_PROMPT }} />
+      </head>
       <body className="min-h-full font-bold">
         {/* reloadOnOnline off: a reload when the connection returns would cancel an
             in-flight offline navigation (and needlessly interrupt a game). */}

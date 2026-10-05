@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { BrandLogo, Wordmark } from '@/components/brand-logo';
 import { Chunky, Screen } from '@/components/kit';
 import { InstallHint } from '@/components/pwa/install-hint';
+import { InstallSheet } from '@/components/pwa/install-sheet';
 import { navigate } from '@/lib/navigation';
 import { loadSavedGame } from '@/persistence/db';
 import type { SavedGame } from '@/persistence/db';
@@ -158,6 +159,7 @@ export function HomeScreen() {
         </nav>
 
         <InstallHint />
+        <InstallSheet />
       </Screen>
     </div>
   );

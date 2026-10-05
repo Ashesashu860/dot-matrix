@@ -2,31 +2,14 @@
 
 import { Share, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt(): Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
-}
+import { isIos, isStandalone, useInstallPrompt } from './use-install-prompt';
 
 // Pre-rename key, kept so a dismissed hint stays dismissed.
 const DISMISS_KEY = 'dots-matrix:install-dismissed';
 
-function isStandalone() {
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true
-  );
-}
-
-function isIosSafari() {
-  const ua = navigator.userAgent;
-  const ios = /iPad|iPhone|iPod/.test(ua) || (ua.includes('Mac') && navigator.maxTouchPoints > 1);
-  return ios && /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS/.test(ua);
-}
-
-/** Native install prompt where available; a short "Add to Home Screen" tip on iOS Safari. */
+/** Native install prompt where available; a short "Add to Home Screen" tip on iOS. */
 export function InstallHint() {
-  const [prompt, setPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const { canPrompt, install } = useInstallPrompt();
   const [ios, setIos] = useState(false);
   const [dismissed, setDismissed] = useState(true);
 
@@ -41,16 +24,10 @@ export function InstallHint() {
     // Reading browser-only APIs must happen after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(wasDismissed);
-    setIos(isIosSafari());
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setPrompt(e as BeforeInstallPromptEvent);
-    };
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+    setIos(isIos());
   }, []);
 
-  if (dismissed || (!prompt && !ios)) return null;
+  if (dismissed || (!canPrompt && !ios)) return null;
 
   const dismiss = () => {
     setDismissed(true);
@@ -63,15 +40,8 @@ export function InstallHint() {
 
   return (
     <div className="flex items-center justify-center gap-1.5 text-center text-xs font-extrabold text-screen-soft">
-      {prompt ? (
-        <button
-          className="cursor-pointer underline decoration-2 underline-offset-2"
-          onClick={async () => {
-            await prompt.prompt();
-            await prompt.userChoice;
-            setPrompt(null);
-          }}
-        >
+      {canPrompt ? (
+        <button className="cursor-pointer underline decoration-2 underline-offset-2" onClick={install}>
           Install Dotsnatch to play offline
         </button>
       ) : (
