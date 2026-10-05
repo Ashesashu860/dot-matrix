@@ -16,7 +16,9 @@ export const onPresenceWritten = onValueWritten(
   { ref: '/status/{roomId}/{uid}', region: REGION },
   async (event) => {
     const { roomId, uid } = event.params;
-    const node = event.data.after.val() as PresenceNode | null;
+    // Triggers for quick online/offline flips can finish out of order, so mirror the
+    // node's current value rather than the one this event carried.
+    const node = (await event.data.after.ref.get()).val() as PresenceNode | null;
     const connected = node?.state === 'online';
     const ref = roomPlayerRef(roomId, uid);
     const snap = await ref.get();

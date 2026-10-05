@@ -230,14 +230,17 @@ describe('presence, forfeit and reconnect', () => {
     const [g1] = guests;
     const statusRef = ref(g1!.database, `status/${roomId}/${g1!.uid}`);
     await set(statusRef, { state: 'online', at: Date.now() });
-    await set(statusRef, { state: 'offline', at: Date.now() });
+    // The grace period runs from the client's `at`, but the trigger that mirrors it can
+    // take seconds on a cold CI runner. Stamp it ahead so the check below still lands
+    // inside the 2s emulator grace period however slow the trigger is.
+    const offlineAt = Date.now() + 10_000;
+    await set(statusRef, { state: 'offline', at: offlineAt });
 
     const playerDoc = () => getDoc(doc(host.firestore, 'rooms', roomId, 'players', g1!.uid));
     await waitFor(async () => (await playerDoc()).data()?.connected === false);
 
-    // Still inside the 2s emulator grace period.
     await expectCode(host.call('claimInactivity', { gameId, targetUid: g1!.uid }), 'PLAYER_STILL_CONNECTED');
-    await new Promise((r) => setTimeout(r, 2200));
+    await new Promise((r) => setTimeout(r, offlineAt + 2200 - Date.now()));
     await host.call('claimInactivity', { gameId, targetUid: g1!.uid });
     const game = await readGame(host, gameId);
     expect(game.state.players.find((p) => p.id === g1!.uid)?.active).toBe(false);
