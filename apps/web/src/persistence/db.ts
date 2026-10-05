@@ -21,6 +21,8 @@ export interface Settings {
   extraTurnOnCapture: boolean;
   /** vs CPU: a bot makes the opening move. */
   cpuFirst: boolean;
+  /** Pulse boxes that are one line away from being captured. */
+  captureHints: boolean;
   lastPlayerNames: string[];
   onlineName: string;
 }
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   animations: true,
   extraTurnOnCapture: true,
   cpuFirst: false,
+  captureHints: true,
   lastPlayerNames: ['Player 1', 'Player 2', 'Player 3', 'Player 4'],
   onlineName: '',
 };

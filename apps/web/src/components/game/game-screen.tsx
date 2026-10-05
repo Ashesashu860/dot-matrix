@@ -13,6 +13,7 @@ import { canInteract } from '@/controllers/types';
 import type { GameController } from '@/controllers/types';
 import { viewBoxSize } from '@/lib/board-geometry';
 import { formatClock } from '@/lib/players';
+import { useSettings } from '@/stores/settings-store';
 import { ResultDialog } from './result-dialog';
 import { Scoreboard } from './scoreboard';
 import { TurnBanner } from './turn-banner';
@@ -85,6 +86,7 @@ export function GameScreen({
   const resultOpen = state.status === 'finished' && resultFor === state.gameId;
   const announcement = useMoveFeedback(view, perspectiveId);
   const interactive = canInteract(view);
+  const captureHints = useSettings((s) => s.captureHints);
   const elapsed = useElapsed(state.startedAt, state.endedAt, view.paused);
 
   // Show results shortly after the final move so the last celebration is visible.
@@ -188,6 +190,7 @@ export function GameScreen({
             pendingEdgeId={view.pendingEdgeId}
             lastEvent={view.lastEvent}
             maxHeight={boardMaxHeight}
+            showHints={captureHints}
             onSelect={controller.submitMove.bind(controller)}
           />
         </div>
