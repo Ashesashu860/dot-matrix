@@ -5,6 +5,7 @@ import type { GameState } from '@dots/game-engine';
 import { PLAYER_COLORS } from '@dots/protocol';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Chunky } from '@/components/kit';
+import { InstallSheet } from '@/components/pwa/install-sheet';
 import { darkShade, formatClock, inkOn, shapeForIndex } from '@/lib/players';
 import { PlayerShapeIcon } from './player-shape';
 
@@ -196,6 +197,7 @@ export function ResultDialog({
               </Chunky>
             </div>
           </div>
+          <InstallSheet afterGame />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

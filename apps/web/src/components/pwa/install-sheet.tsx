@@ -11,12 +11,15 @@ const SNOOZE_KEY = 'dotsnatch:install-snoozed-until';
 const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Only ask once per visit, not every time the player returns to the home screen. */
 const SESSION_KEY = 'dotsnatch:install-asked';
-/** Let the home screen settle before interrupting. */
+/** Let the screen settle (or the result sink in) before interrupting. */
 const OPEN_DELAY_MS = 1200;
+const AFTER_GAME_DELAY_MS = 1800;
 
-function shouldAsk() {
-  // Automated browsers (e2e tests) would have the sheet cover the home screen.
+function shouldAsk(afterGame: boolean) {
+  // Automated browsers (e2e tests) would have the sheet cover the screen.
   if (isStandalone() || navigator.webdriver) return false;
+  // After a game we always ask; the snooze only quiets the home screen.
+  if (afterGame) return true;
   try {
     if (sessionStorage.getItem(SESSION_KEY) === '1') return false;
     return Number(localStorage.getItem(SNOOZE_KEY) ?? 0) < Date.now();
@@ -34,8 +37,12 @@ function remember(snooze: boolean) {
   }
 }
 
-/** Asks browser (non-installed) players to install Dotsnatch as an app. */
-export function InstallSheet() {
+/**
+ * Asks browser (non-installed) players to install Dotsnatch as an app. On the home
+ * screen it asks once per visit (and "Not now" snoozes it); with `afterGame` it
+ * asks every time it mounts, i.e. after each finished game.
+ */
+export function InstallSheet({ afterGame = false }: { afterGame?: boolean }) {
   const { canPrompt, install } = useInstallPrompt();
   const [eligible, setEligible] = useState(false);
   const [platform, setPlatform] = useState<'ios' | 'android' | null>(null);
@@ -44,9 +51,9 @@ export function InstallSheet() {
   useEffect(() => {
     // Reading browser-only APIs must happen after mount.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setEligible(shouldAsk());
+    setEligible(shouldAsk(afterGame));
     setPlatform(isIos() ? 'ios' : isAndroid() ? 'android' : null);
-  }, []);
+  }, [afterGame]);
 
   // Desktop browsers without the install event (Firefox, Safari) can't install, so skip them.
   const installable = canPrompt || platform !== null;
@@ -55,9 +62,9 @@ export function InstallSheet() {
     const t = setTimeout(() => {
       remember(false);
       setOpen(true);
-    }, OPEN_DELAY_MS);
+    }, afterGame ? AFTER_GAME_DELAY_MS : OPEN_DELAY_MS);
     return () => clearTimeout(t);
-  }, [eligible, installable]);
+  }, [eligible, installable, afterGame]);
 
   const notNow = () => {
     remember(true);
