@@ -16,16 +16,20 @@ export interface LevelDefinition {
   columns: number;
 }
 
-/** Progressive levels from the requirements (§2.1). */
+/**
+ * Progressive levels from the requirements (§2.1). Past 8×8 the boards grow
+ * taller rather than wider: phones are portrait, so extra rows cost far less
+ * tap-target size than extra columns.
+ */
 export const LEVELS: readonly LevelDefinition[] = [
   { level: 1, rows: 4, columns: 4 },
   { level: 2, rows: 5, columns: 5 },
   { level: 3, rows: 6, columns: 6 },
   { level: 4, rows: 7, columns: 7 },
   { level: 5, rows: 8, columns: 8 },
-  { level: 6, rows: 9, columns: 9 },
-  { level: 7, rows: 10, columns: 10 },
-  { level: 8, rows: 12, columns: 12 },
+  { level: 6, rows: 9, columns: 8 },
+  { level: 7, rows: 10, columns: 8 },
+  { level: 8, rows: 11, columns: 9 },
 ];
 
 export const MAX_LEVEL = LEVELS.length;

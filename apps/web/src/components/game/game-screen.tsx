@@ -185,6 +185,7 @@ export function GameScreen({
           style={{ width: `min(${large ? 'calc(100vw - 40px)' : '100%'}, calc(${boardMaxHeight} * ${width / height} + 24px))` }}
         >
           <GameBoard
+            key={state.gameId}
             state={state}
             interactive={interactive}
             pendingEdgeId={view.pendingEdgeId}

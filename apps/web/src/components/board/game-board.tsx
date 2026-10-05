@@ -1,6 +1,7 @@
 'use client';
 
 import type { GameState } from '@dots/game-engine';
+import { Shrink } from 'lucide-react';
 import { motion } from 'motion/react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
@@ -44,11 +45,54 @@ const KEY_DIRECTIONS: Record<string, Direction> = {
 /** Design reference width of the board in CSS pixels. */
 const BOARD_PX = 326;
 
+/** Furthest the board can be pinched in. */
+const MAX_ZOOM = 3;
+/** Boards this big show a one-time "Pinch to zoom" hint on touch screens. */
+const ZOOM_HINT_DOTS = 9;
+const ZOOM_LEARNED_KEY = 'dotsnatch:zoom-learned';
+
+/** Board zoom: a scale and a pan offset in CSS pixels, applied as a transform. */
+interface Zoom {
+  scale: number;
+  x: number;
+  y: number;
+}
+const NO_ZOOM: Zoom = { scale: 1, x: 0, y: 0 };
+
+/** Keep the zoom in range and the board covering the whole viewport. */
+function clampZoom(z: Zoom, width: number, height: number): Zoom {
+  const scale = clamp(z.scale, 1, MAX_ZOOM);
+  if (scale === 1) return NO_ZOOM;
+  return { scale, x: clamp(z.x, width * (1 - scale), 0), y: clamp(z.y, height * (1 - scale), 0) };
+}
+
+/** Zoom to `scale`, moving the board point that was under `from` (at `start`) to `to`. */
+function zoomAround(start: Zoom, from: Point, to: Point, scale: number): Zoom {
+  const px = (from.x - start.x) / start.scale;
+  const py = (from.y - start.y) / start.scale;
+  return { scale, x: to.x - px * scale, y: to.y - py * scale };
+}
+
+/** A client point relative to an element's top-left corner. */
+function relativeTo(el: HTMLElement, clientX: number, clientY: number): Point {
+  const rect = el.getBoundingClientRect();
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function rememberZoomLearned() {
+  try {
+    localStorage.setItem(ZOOM_LEARNED_KEY, '1');
+  } catch {
+    // storage unavailable
+  }
+}
+
 /**
  * SVG board. Rendering only — every rule decision comes from the GameState.
  * Pointer input uses nearest-edge hit-testing over the whole board so taps need
  * not be precise; each available edge is also a focusable button for keyboard
- * and screen-reader users.
+ * and screen-reader users. One finger draws; two fingers pinch to zoom and pan
+ * (trackpad pinch or ctrl + wheel on desktop). Remount it per game to reset the zoom.
  */
 export const GameBoard = memo(function GameBoard({
   state,
@@ -63,7 +107,14 @@ export const GameBoard = memo(function GameBoard({
   const size = useMemo(() => ({ rows: state.rows, columns: state.columns }), [state.rows, state.columns]);
   const { width, height } = viewBoxSize(size);
   const svgRef = useRef<SVGSVGElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const pressing = useRef(false);
+  const [zoom, setZoom] = useState<Zoom>(NO_ZOOM);
+  const zoomRef = useRef(zoom);
+  /** Touch points currently down, in client coordinates. */
+  const touches = useRef(new Map<number, Point>());
+  const pinch = useRef<{ distance: number; mid: Point; start: Zoom } | null>(null);
+  const [zoomHint, setZoomHint] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const [focused, setFocused] = useState<string | null>(null);
   const [focusVisible, setFocusVisible] = useState(false);
@@ -110,12 +161,104 @@ export const GameBoard = memo(function GameBoard({
     if (document.activeElement?.getAttribute('data-edge') !== rovingId) focusEdge(rovingId);
   }, [rovingId]);
 
+  // The board keeps its aspect ratio, so its on-screen box (zoom included) maps
+  // straight onto the viewBox.
   const toSvgPoint = (event: PointerEvent): Point | null => {
-    const svg = svgRef.current;
-    const ctm = svg?.getScreenCTM();
-    if (!svg || !ctm) return null;
-    const p = new DOMPoint(event.clientX, event.clientY).matrixTransform(ctm.inverse());
-    return { x: p.x, y: p.y };
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect?.width || !rect.height) return null;
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * width,
+      y: ((event.clientY - rect.top) / rect.height) * height,
+    };
+  };
+
+  const applyZoom = useCallback((next: Zoom) => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const z = clampZoom(next, el.clientWidth, el.clientHeight);
+    zoomRef.current = z;
+    setZoom(z);
+  }, []);
+
+  const pinchGeometry = () => {
+    const [a, b] = [...touches.current.values()];
+    return {
+      distance: Math.max(1, Math.hypot(a!.x - b!.x, a!.y - b!.y)),
+      mid: relativeTo(viewportRef.current!, (a!.x + b!.x) / 2, (a!.y + b!.y) / 2),
+    };
+  };
+
+  const startPinch = () => {
+    // A second finger turns the press into a pinch; nothing gets drawn.
+    pressing.current = false;
+    setPreview(null);
+    setZoomHint(false);
+    rememberZoomLearned();
+    pinch.current = { ...pinchGeometry(), start: zoomRef.current };
+  };
+
+  const movePinch = () => {
+    const start = pinch.current;
+    if (!start || touches.current.size < 2) return;
+    const { distance, mid } = pinchGeometry();
+    applyZoom(zoomAround(start.start, start.mid, mid, start.start.scale * (distance / start.distance)));
+  };
+
+  const releaseTouch = (event: PointerEvent) => {
+    touches.current.delete(event.pointerId);
+    if (touches.current.size === 0) pinch.current = null;
+  };
+
+  // Trackpad pinches (and ctrl + wheel) zoom; once zoomed, the wheel pans.
+  useEffect(() => {
+    const el = viewportRef.current;
+    if (!el) return;
+    const onWheel = (event: WheelEvent) => {
+      const z = zoomRef.current;
+      if (!event.ctrlKey && z.scale === 1) return;
+      event.preventDefault();
+      if (event.ctrlKey) {
+        const at = relativeTo(el, event.clientX, event.clientY);
+        const delta = clamp(event.deltaY, -50, 50);
+        applyZoom(zoomAround(z, at, at, z.scale * Math.exp(-delta * 0.01)));
+      } else {
+        applyZoom({ ...z, x: z.x - event.deltaX, y: z.y - event.deltaY });
+      }
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, [applyZoom]);
+
+  // Teach pinch-to-zoom once, on big boards on touch screens.
+  useEffect(() => {
+    if (state.rows < ZOOM_HINT_DOTS && state.columns < ZOOM_HINT_DOTS) return;
+    if (!window.matchMedia('(pointer: coarse)').matches) return;
+    try {
+      if (localStorage.getItem(ZOOM_LEARNED_KEY) === '1') return;
+    } catch {
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setZoomHint(true);
+    const t = setTimeout(() => setZoomHint(false), 3500);
+    return () => clearTimeout(t);
+  }, [state.rows, state.columns]);
+
+  /** Pan a keyboard-focused line into view when zoomed in. */
+  const revealEdge = (id: string) => {
+    const z = zoomRef.current;
+    const el = viewportRef.current;
+    const m = edgeMidpoint(id, size);
+    if (z.scale === 1 || !el || !m) return;
+    const w = el.clientWidth;
+    const h = el.clientHeight;
+    const bx = (m.x / width) * w * z.scale;
+    const by = (m.y / height) * h * z.scale;
+    const margin = Math.min(w, h) * 0.12;
+    const px = bx + z.x;
+    const py = by + z.y;
+    if (px >= margin && px <= w - margin && py >= margin && py <= h - margin) return;
+    applyZoom({ ...z, x: w / 2 - bx, y: h / 2 - by });
   };
 
   const hit = (event: PointerEvent) => {
@@ -125,6 +268,14 @@ export const GameBoard = memo(function GameBoard({
 
   const onPointerDown = (event: PointerEvent<SVGSVGElement>) => {
     usingKeyboard.current = false;
+    if (event.pointerType !== 'mouse') {
+      touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      // Keep receiving this finger's moves even if it leaves the board mid-pinch.
+      event.currentTarget.setPointerCapture(event.pointerId);
+      if (touches.current.size === 2) return startPinch();
+      // Extra fingers, or a finger left down after a pinch, never draw.
+      if (pinch.current || touches.current.size > 2) return;
+    }
     if (!interactive || (event.pointerType === 'mouse' && event.button !== 0)) return;
     const id = hit(event);
     if (!id) return;
@@ -134,13 +285,19 @@ export const GameBoard = memo(function GameBoard({
   };
 
   const onPointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    if (touches.current.has(event.pointerId)) {
+      touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+    if (pinch.current) return movePinch();
     if (!interactive) return;
     // Hover preview for mice; drag-to-adjust for touch and pen.
     if (pressing.current || event.pointerType === 'mouse') setPreview(hit(event));
   };
 
   const onPointerUp = (event: PointerEvent<SVGSVGElement>) => {
-    if (!pressing.current) return;
+    const wasPinching = pinch.current !== null;
+    releaseTouch(event);
+    if (wasPinching || !pressing.current) return;
     pressing.current = false;
     const id = hit(event);
     // Commit what is previewed at release; releasing away from any line cancels.
@@ -148,7 +305,8 @@ export const GameBoard = memo(function GameBoard({
     setPreview(event.pointerType === 'mouse' ? id : null);
   };
 
-  const cancelPress = () => {
+  const cancelPress = (event: PointerEvent) => {
+    releaseTouch(event);
     pressing.current = false;
     setPreview(null);
   };
@@ -191,222 +349,249 @@ export const GameBoard = memo(function GameBoard({
   const isEndpoint = (x: number, y: number) =>
     previewSeg?.some((p) => p.x === x && p.y === y) ?? false;
 
+  const zoomed = zoom.scale > 1;
+
   return (
     <div
-      className={cn('@container relative mx-auto', className)}
+      ref={viewportRef}
+      className={cn('@container relative mx-auto', zoomed && 'overflow-hidden rounded-[18px]', className)}
       style={{
         aspectRatio: `${width} / ${height}`,
         width: `min(100%, calc(${maxHeight} * ${width / height}))`,
       }}
     >
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${width} ${height}`}
-        className="block size-full touch-none overflow-visible select-none"
-        role="group"
-        aria-label={`Game board, ${state.rows} by ${state.columns} dots. ${
-          interactive ? 'Use arrow keys to choose a line and Enter to draw it.' : 'Waiting for another player.'
-        }`}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={cancelPress}
-        onPointerLeave={() => !pressing.current && setPreview(null)}
-        onKeyDown={onKeyDown}
+      <div
+        className="relative size-full origin-top-left"
+        style={zoomed ? { transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})` } : undefined}
       >
-        {/* Available edges: faint guides */}
-        <g stroke="#EEE6F6" strokeWidth={lineWidth * 0.6} strokeLinecap="round">
-          {availableIds.map((id) => {
-            const seg = edgeSegment(id, size)!;
-            return <line key={id} x1={seg[0].x} y1={seg[0].y} x2={seg[1].x} y2={seg[1].y} />;
-          })}
-        </g>
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${width} ${height}`}
+          className="block size-full touch-none overflow-visible select-none"
+          role="group"
+          aria-label={`Game board, ${state.rows} by ${state.columns} dots. ${
+            interactive ? 'Use arrow keys to choose a line and Enter to draw it.' : 'Waiting for another player.'
+          }`}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={cancelPress}
+          onPointerLeave={() => !pressing.current && setPreview(null)}
+          onKeyDown={onKeyDown}
+        >
+          {/* Available edges: faint guides */}
+          <g stroke="#EEE6F6" strokeWidth={lineWidth * 0.6} strokeLinecap="round">
+            {availableIds.map((id) => {
+              const seg = edgeSegment(id, size)!;
+              return <line key={id} x1={seg[0].x} y1={seg[0].y} x2={seg[1].x} y2={seg[1].y} />;
+            })}
+          </g>
 
-        {/* Cells: owner colour + shape, and a pulsing hint on boxes one line from capture */}
-        <g>
-          {Object.values(state.cells).map((cell) => {
-            const { x: cx, y: cy } = dotPosition(cell.row, cell.column);
-            const x = cx + inset;
-            const y = cy + inset;
-            if (!cell.ownerId) {
-              if (!interactive || !current || !showHints) return null;
-              const sides = [cell.top, cell.right, cell.bottom, cell.left].filter(
-                (id) => state.edges[id]?.claimedBy !== undefined,
-              ).length;
-              if (sides !== 3) return null;
+          {/* Cells: owner colour + shape, and a pulsing hint on boxes one line from capture */}
+          <g>
+            {Object.values(state.cells).map((cell) => {
+              const { x: cx, y: cy } = dotPosition(cell.row, cell.column);
+              const x = cx + inset;
+              const y = cy + inset;
+              if (!cell.ownerId) {
+                if (!interactive || !current || !showHints) return null;
+                const sides = [cell.top, cell.right, cell.bottom, cell.left].filter(
+                  (id) => state.edges[id]?.claimedBy !== undefined,
+                ).length;
+                if (sides !== 3) return null;
+                return (
+                  <rect
+                    key={cell.id}
+                    x={x}
+                    y={y}
+                    width={boxSize}
+                    height={boxSize}
+                    rx={boxRadius}
+                    fill={current.color}
+                    opacity={0.12}
+                    className="animate-[bh-pulse_1.1s_ease-in-out_infinite]"
+                    pointerEvents="none"
+                  />
+                );
+              }
+              const index = playerIndex.get(cell.ownerId) ?? 0;
+              const color = state.players[index]?.color ?? '#2B1B4A';
               return (
-                <rect
+                <g
                   key={cell.id}
-                  x={x}
-                  y={y}
-                  width={boxSize}
-                  height={boxSize}
-                  rx={boxRadius}
-                  fill={current.color}
-                  opacity={0.12}
-                  className="animate-[bh-pulse_1.1s_ease-in-out_infinite]"
+                  className="animate-[bh-cell_.5s_cubic-bezier(.3,1.6,.5,1)]"
+                  style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
                   pointerEvents="none"
-                />
+                >
+                  <rect x={x} y={y} width={boxSize} height={boxSize} rx={boxRadius} fill={color} />
+                  <rect
+                    x={x + boxSize * 0.12}
+                    y={y + boxSize * 0.1}
+                    width={boxSize * 0.35}
+                    height={boxSize * 0.12}
+                    rx={boxSize * 0.06}
+                    fill="#fff"
+                    opacity={0.35}
+                  />
+                  <ShapePath
+                    shape={shapeForIndex(index)}
+                    cx={x + boxSize / 2}
+                    cy={y + boxSize / 2}
+                    r={boxSize * 0.17}
+                    fill={inkOn(color)}
+                  />
+                </g>
               );
-            }
-            const index = playerIndex.get(cell.ownerId) ?? 0;
-            const color = state.players[index]?.color ?? '#2B1B4A';
-            return (
-              <g
-                key={cell.id}
-                className="animate-[bh-cell_.5s_cubic-bezier(.3,1.6,.5,1)]"
-                style={{ transformBox: 'fill-box', transformOrigin: 'center' }}
-                pointerEvents="none"
-              >
-                <rect x={x} y={y} width={boxSize} height={boxSize} rx={boxRadius} fill={color} />
-                <rect
-                  x={x + boxSize * 0.12}
-                  y={y + boxSize * 0.1}
-                  width={boxSize * 0.35}
-                  height={boxSize * 0.12}
-                  rx={boxSize * 0.06}
-                  fill="#fff"
-                  opacity={0.35}
-                />
-                <ShapePath
-                  shape={shapeForIndex(index)}
-                  cx={x + boxSize / 2}
-                  cy={y + boxSize / 2}
-                  r={boxSize * 0.17}
-                  fill={inkOn(color)}
-                />
-              </g>
-            );
-          })}
-        </g>
+            })}
+          </g>
 
-        {/* Claimed edges */}
-        <g strokeLinecap="round" pointerEvents="none">
-          {edges.map((edge) => {
-            if (edge.claimedBy === undefined) return null;
-            const seg = edgeSegment(edge.id, size)!;
-            const color = state.players[playerIndex.get(edge.claimedBy) ?? 0]?.color ?? '#2B1B4A';
-            const isLast = lastEvent?.edgeId === edge.id;
-            return (
-              <g key={edge.id}>
-                {isLast && (
+          {/* Claimed edges */}
+          <g strokeLinecap="round" pointerEvents="none">
+            {edges.map((edge) => {
+              if (edge.claimedBy === undefined) return null;
+              const seg = edgeSegment(edge.id, size)!;
+              const color = state.players[playerIndex.get(edge.claimedBy) ?? 0]?.color ?? '#2B1B4A';
+              const isLast = lastEvent?.edgeId === edge.id;
+              return (
+                <g key={edge.id}>
+                  {isLast && (
+                    <line
+                      x1={seg[0].x}
+                      y1={seg[0].y}
+                      x2={seg[1].x}
+                      y2={seg[1].y}
+                      stroke={color}
+                      strokeOpacity={0.28}
+                      strokeWidth={lineWidth * 2.8}
+                    />
+                  )}
                   <line
                     x1={seg[0].x}
                     y1={seg[0].y}
                     x2={seg[1].x}
                     y2={seg[1].y}
                     stroke={color}
-                    strokeOpacity={0.28}
-                    strokeWidth={lineWidth * 2.8}
+                    strokeWidth={lineWidth}
+                    pathLength={1}
+                    strokeDasharray={1}
+                    className="animate-[bh-draw_.22s_ease-out]"
                   />
-                )}
-                <line
-                  x1={seg[0].x}
-                  y1={seg[0].y}
-                  x2={seg[1].x}
-                  y2={seg[1].y}
-                  stroke={color}
-                  strokeWidth={lineWidth}
-                  pathLength={1}
-                  strokeDasharray={1}
-                  className="animate-[bh-draw_.22s_ease-out]"
-                />
-              </g>
-            );
-          })}
-        </g>
+                </g>
+              );
+            })}
+          </g>
 
-        {/* Pending (submitted, awaiting server) */}
-        {pendingEdgeId && current && (
-          <PendingLine id={pendingEdgeId} size={size} color={current.color} width={lineWidth} />
-        )}
+          {/* Pending (submitted, awaiting server) */}
+          {pendingEdgeId && current && (
+            <PendingLine id={pendingEdgeId} size={size} color={current.color} width={lineWidth} />
+          )}
 
-        {/* Preview */}
-        {previewSeg && current && (
-          <line
-            x1={previewSeg[0].x}
-            y1={previewSeg[0].y}
-            x2={previewSeg[1].x}
-            y2={previewSeg[1].y}
-            stroke={current.color}
-            strokeOpacity={0.5}
-            strokeWidth={lineWidth}
-            strokeLinecap="round"
-            pointerEvents="none"
-          />
-        )}
-
-        {/* Keyboard focus ring */}
-        {focusRingId && (() => {
-          const seg = edgeSegment(focusRingId, size)!;
-          return (
+          {/* Preview */}
+          {previewSeg && current && (
             <line
-              x1={seg[0].x}
-              y1={seg[0].y}
-              x2={seg[1].x}
-              y2={seg[1].y}
-              stroke="#7B5CFF"
-              strokeWidth={lineWidth * 2.4}
+              x1={previewSeg[0].x}
+              y1={previewSeg[0].y}
+              x2={previewSeg[1].x}
+              y2={previewSeg[1].y}
+              stroke={current.color}
+              strokeOpacity={0.5}
+              strokeWidth={lineWidth}
               strokeLinecap="round"
-              strokeOpacity={0.7}
-              fill="none"
               pointerEvents="none"
             />
-          );
-        })()}
-
-        {/* Dots (the preview's endpoints grow in the mover's colour) */}
-        <g pointerEvents="none">
-          {Array.from({ length: state.rows }, (_, r) =>
-            Array.from({ length: state.columns }, (_, c) => {
-              const { x, y } = dotPosition(r, c);
-              const on = isEndpoint(x, y);
-              return (
-                <circle
-                  key={`${r}-${c}`}
-                  cx={x}
-                  cy={y}
-                  r={on ? dotRadius * 1.4 : dotRadius}
-                  fill={on && current ? current.color : '#2B1B4A'}
-                  style={{ transition: 'r .15s, fill .15s' }}
-                />
-              );
-            }),
           )}
-        </g>
 
-        {/* Focusable edge buttons (keyboard + screen readers) */}
-        <g>
-          {availableIds.map((id, i) => {
-            const seg = edgeSegment(id, size)!;
-            const tabbable = rovingId ? id === rovingId : i === 0;
+          {/* Keyboard focus ring */}
+          {focusRingId && (() => {
+            const seg = edgeSegment(focusRingId, size)!;
             return (
               <line
-                key={id}
-                data-edge={id}
                 x1={seg[0].x}
                 y1={seg[0].y}
                 x2={seg[1].x}
                 y2={seg[1].y}
-                stroke="transparent"
-                strokeWidth={SPACING * 0.3}
+                stroke="#7B5CFF"
+                strokeWidth={lineWidth * 2.4}
+                strokeLinecap="round"
+                strokeOpacity={0.7}
+                fill="none"
                 pointerEvents="none"
-                role="button"
-                tabIndex={tabbable ? 0 : -1}
-                aria-disabled={!interactive}
-                aria-label={`${describeEdge(id, size)}, available`}
-                className="outline-none"
-                onFocus={() => {
-                  setFocused(id);
-                  setFocusVisible(true);
-                }}
-                onBlur={() => setFocusVisible(false)}
               />
             );
-          })}
-        </g>
-      </svg>
-      <CaptureEffects state={state} lastEvent={lastEvent} width={width} height={height} />
+          })()}
+
+          {/* Dots (the preview's endpoints grow in the mover's colour) */}
+          <g pointerEvents="none">
+            {Array.from({ length: state.rows }, (_, r) =>
+              Array.from({ length: state.columns }, (_, c) => {
+                const { x, y } = dotPosition(r, c);
+                const on = isEndpoint(x, y);
+                return (
+                  <circle
+                    key={`${r}-${c}`}
+                    cx={x}
+                    cy={y}
+                    r={on ? dotRadius * 1.4 : dotRadius}
+                    fill={on && current ? current.color : '#2B1B4A'}
+                    style={{ transition: 'r .15s, fill .15s' }}
+                  />
+                );
+              }),
+            )}
+          </g>
+
+          {/* Focusable edge buttons (keyboard + screen readers) */}
+          <g>
+            {availableIds.map((id, i) => {
+              const seg = edgeSegment(id, size)!;
+              const tabbable = rovingId ? id === rovingId : i === 0;
+              return (
+                <line
+                  key={id}
+                  data-edge={id}
+                  x1={seg[0].x}
+                  y1={seg[0].y}
+                  x2={seg[1].x}
+                  y2={seg[1].y}
+                  stroke="transparent"
+                  strokeWidth={SPACING * 0.3}
+                  pointerEvents="none"
+                  role="button"
+                  tabIndex={tabbable ? 0 : -1}
+                  aria-disabled={!interactive}
+                  aria-label={`${describeEdge(id, size)}, available`}
+                  className="outline-none"
+                  onFocus={() => {
+                    setFocused(id);
+                    setFocusVisible(true);
+                    revealEdge(id);
+                  }}
+                  onBlur={() => setFocusVisible(false)}
+                />
+              );
+            })}
+          </g>
+        </svg>
+        <CaptureEffects state={state} lastEvent={lastEvent} width={width} height={height} />
+      </div>
+      {zoomed && (
+        <button
+          type="button"
+          onClick={() => applyZoom(NO_ZOOM)}
+          aria-label="Fit board to screen"
+          className="absolute top-2 right-2 flex size-10 items-center justify-center rounded-full bg-white/90 text-ink shadow-[0_3px_0_#EADFCB]"
+        >
+          <Shrink className="size-5" aria-hidden />
+        </button>
+      )}
+      {zoomHint && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-ink/85 px-3.5 py-1.5 text-sm font-extrabold whitespace-nowrap text-white animate-[bh-rise_.4s_ease-out]"
+        >
+          Pinch to zoom
+        </div>
+      )}
     </div>
   );
 });
