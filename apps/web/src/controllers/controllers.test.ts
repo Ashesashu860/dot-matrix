@@ -45,6 +45,33 @@ async function until(predicate: () => boolean, timeoutMs = 5000) {
   }
 }
 
+describe('newLocalGame', () => {
+  it('replays a starting position from the given first player', () => {
+    const setup: LocalGameSetup = {
+      ...localSetup,
+      firstPlayerId: 'b',
+      initialMoves: [
+        { edgeId: 'H-0-0', playerId: 'b' },
+        { edgeId: 'H-2-1', playerId: 'a' },
+      ],
+    };
+    const state = newLocalGame(setup, 'g', 0);
+    expect(state.edges['H-0-0']?.claimedBy).toBe('b');
+    expect(state.edges['H-2-1']?.claimedBy).toBe('a');
+    expect(state.currentPlayerIndex).toBe(1);
+    expect(state.totalMoves).toBe(2);
+  });
+
+  it('restarts back to the starting position', () => {
+    const setup: LocalGameSetup = { ...localSetup, initialMoves: [{ edgeId: 'V-0-0', playerId: 'a' }] };
+    const c = new LocalController(newLocalGame(setup, 'g', 0), setup);
+    c.submitMove('H-0-0');
+    c.restart();
+    expect(c.getView().state.totalMoves).toBe(1);
+    expect(c.getView().state.edges['H-0-0']?.claimedBy).toBeUndefined();
+  });
+});
+
 describe('LocalController', () => {
   it('applies moves for whoever is current and emits events', () => {
     const onChange = vi.fn();

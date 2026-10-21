@@ -7,8 +7,7 @@ import type { LocalGameSetup } from '@/controllers/local-controller';
 import type { GameController } from '@/controllers/types';
 import { saveGame } from '@/persistence/db';
 import type { SavedGame } from '@/persistence/db';
-import { createWorkerRunner } from '@/workers/cpu-runner';
-import type { CpuRunner } from '@/workers/cpu-runner';
+import { sharedRunner } from '@/workers/cpu-runner';
 import { useProgress } from './progress-store';
 
 interface SessionStore {
@@ -21,9 +20,6 @@ interface SessionStore {
   setController(controller: GameController | null): void;
   end(): void;
 }
-
-let runner: CpuRunner | null = null;
-const getRunner = () => (runner ??= createWorkerRunner());
 
 function humanPerspective(setup: LocalGameSetup): string | null {
   if (setup.create.mode !== 'cpu') return null;
@@ -40,7 +36,7 @@ function buildController(state: SavedGame['state'], setup: LocalGameSetup): Game
     },
   };
   return setup.create.mode === 'cpu'
-    ? new CpuController(state, setup, getRunner(), hooks)
+    ? new CpuController(state, setup, sharedRunner(), hooks)
     : new LocalController(state, setup, hooks);
 }
 

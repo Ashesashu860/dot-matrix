@@ -55,3 +55,16 @@ test('the CPU worker runs from the service worker cache while offline', async ({
   expect(errors.filter((e) => e.includes('worker bootstrap'))).toEqual([]);
   await context.setOffline(false);
 });
+
+test('the daily puzzle builds and plays offline', async ({ page, context }) => {
+  await waitForPrecache(page);
+
+  await context.setOffline(true);
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.getByRole('link', { name: /Daily Puzzle/ }).click();
+  await expect(page.getByText(/Finish with \d+ of \d+ boxes/)).toBeVisible({ timeout: 15000 });
+  await page.getByRole('button', { name: /Start puzzle/ }).click();
+  await expect(page.getByRole('group', { name: /Game board/ })).toBeVisible();
+  await context.setOffline(false);
+});

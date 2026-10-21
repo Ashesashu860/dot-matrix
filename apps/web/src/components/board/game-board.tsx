@@ -26,6 +26,8 @@ interface GameBoardProps {
   /** Whether the local user may draw a line right now. */
   interactive: boolean;
   pendingEdgeId: string | null;
+  /** Suggested line, drawn dashed and pulsing (puzzle hints). */
+  hintEdgeId?: string | null;
   lastEvent: MoveEvent | null;
   onSelect(edgeId: string): void;
   /** Pulse boxes that have three sides drawn (on the local player's turn). */
@@ -98,6 +100,7 @@ export const GameBoard = memo(function GameBoard({
   state,
   interactive,
   pendingEdgeId,
+  hintEdgeId = null,
   lastEvent,
   onSelect,
   showHints = true,
@@ -486,6 +489,11 @@ export const GameBoard = memo(function GameBoard({
             <PendingLine id={pendingEdgeId} size={size} color={current.color} width={lineWidth} />
           )}
 
+          {/* Hint */}
+          {hintEdgeId && current && state.edges[hintEdgeId]?.claimedBy === undefined && (
+            <PendingLine id={hintEdgeId} size={size} color={current.color} width={lineWidth} dashed />
+          )}
+
           {/* Preview */}
           {previewSeg && current && (
             <line
@@ -732,7 +740,19 @@ function CaptureEffects({
   );
 }
 
-function PendingLine({ id, size, color, width }: { id: string; size: { rows: number; columns: number }; color: string; width: number }) {
+function PendingLine({
+  id,
+  size,
+  color,
+  width,
+  dashed,
+}: {
+  id: string;
+  size: { rows: number; columns: number };
+  color: string;
+  width: number;
+  dashed?: boolean;
+}) {
   const seg = edgeSegment(id, size);
   if (!seg) return null;
   return (
@@ -744,6 +764,8 @@ function PendingLine({ id, size, color, width }: { id: string; size: { rows: num
       stroke={color}
       strokeWidth={width}
       strokeLinecap="round"
+      strokeDasharray={dashed ? `${width * 0.1} ${width * 1.6}` : undefined}
+      data-hint={dashed ? id : undefined}
       animate={{ strokeOpacity: [0.3, 0.8, 0.3] }}
       transition={{ duration: 0.9, repeat: Infinity }}
       pointerEvents="none"

@@ -1,3 +1,4 @@
+import type { Puzzle } from '@dots/cpu-engine';
 import { emptyStats } from '@dots/game-engine';
 import type { GameResultSummary, GameState, PlayerStats } from '@dots/game-engine';
 import { openDB } from 'idb';
@@ -48,6 +49,21 @@ export interface Progress {
 
 export const DEFAULT_PROGRESS: Progress = { unlockedLevel: 1 };
 
+export interface DailyResult {
+  /** Attempts used (failed ones, plus the solving one). */
+  attempts: number;
+  solved: boolean;
+  hints: number;
+}
+
+export interface DailyProgress {
+  results: Record<number, DailyResult>;
+  /** Today's puzzle, cached so it is generated once. */
+  puzzle: Puzzle | null;
+}
+
+export const DEFAULT_DAILY: DailyProgress = { results: {}, puzzle: null };
+
 export interface SavedGame {
   state: GameState;
   setup: LocalGameSetup;
@@ -56,9 +72,11 @@ export interface SavedGame {
 
 export type HistoryEntry = GameResultSummary & { perspectivePlayerId: string | null };
 
+type KvKey = 'settings' | 'progress' | 'stats' | 'daily';
+
 interface DotsDB extends DBSchema {
   kv: {
-    key: 'settings' | 'progress' | 'stats';
+    key: KvKey;
     value: unknown;
   };
   savedGame: {
@@ -93,7 +111,7 @@ function db(): Promise<IDBPDatabase<DotsDB> | null> {
   return dbPromise;
 }
 
-async function getKv<T>(key: 'settings' | 'progress' | 'stats', fallback: T): Promise<T> {
+async function getKv<T>(key: KvKey, fallback: T): Promise<T> {
   try {
     const d = await db();
     const value = d ? await d.get('kv', key) : memory.get(key);
@@ -103,7 +121,7 @@ async function getKv<T>(key: 'settings' | 'progress' | 'stats', fallback: T): Pr
   }
 }
 
-async function setKv(key: 'settings' | 'progress' | 'stats', value: unknown): Promise<void> {
+async function setKv(key: KvKey, value: unknown): Promise<void> {
   try {
     const d = await db();
     if (d) await d.put('kv', value, key);
@@ -119,6 +137,8 @@ export const loadProgress = () => getKv<Progress>('progress', DEFAULT_PROGRESS);
 export const saveProgress = (p: Progress) => setKv('progress', p);
 export const loadStats = () => getKv<PlayerStats>('stats', emptyStats());
 export const saveStats = (s: PlayerStats) => setKv('stats', s);
+export const loadDaily = () => getKv<DailyProgress>('daily', DEFAULT_DAILY);
+export const saveDaily = (d: DailyProgress) => setKv('daily', d);
 
 export async function loadSavedGame(): Promise<SavedGame | null> {
   try {

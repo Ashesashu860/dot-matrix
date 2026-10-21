@@ -6,6 +6,7 @@ import type { ProtocolErrorCode } from '@dots/protocol';
 import { Loader2, WifiOff } from 'lucide-react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import type { ReactNode } from 'react';
 import { toast } from 'sonner';
 import { GameBoard } from '@/components/board/game-board';
 import { Chunky, RoundButton } from '@/components/kit';
@@ -15,6 +16,7 @@ import { viewBoxSize } from '@/lib/board-geometry';
 import { formatClock } from '@/lib/players';
 import { useSettings } from '@/stores/settings-store';
 import { ResultDialog } from './result-dialog';
+import type { ResultOverrides } from './result-dialog';
 import { Scoreboard } from './scoreboard';
 import { TurnBanner } from './turn-banner';
 import { useMoveFeedback } from './use-move-feedback';
@@ -31,6 +33,15 @@ export interface GameScreenProps {
   onNewGame?: () => void;
   /** Online: leaving forfeits, so it is labelled and confirmed differently. */
   online?: boolean;
+  /** Header title in place of "Level N" / "Custom board" (puzzles). */
+  title?: string;
+  /** Line under the progress bar, e.g. a puzzle goal. */
+  goal?: ReactNode;
+  /** Suggested line to highlight on the board. */
+  hintEdgeId?: string | null;
+  /** Extra buttons under the turn banner (e.g. a hint). */
+  actions?: ReactNode;
+  result?: ResultOverrides;
 }
 
 /** Room left for everything above and below the board. */
@@ -77,6 +88,11 @@ export function GameScreen({
   onNextLevel,
   onNewGame,
   online,
+  title,
+  goal,
+  hintEdgeId,
+  actions,
+  result,
 }: GameScreenProps) {
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
   const { state } = view;
@@ -143,7 +159,7 @@ export function GameScreen({
         </RoundButton>
         <div className="flex min-w-0 flex-1 flex-col items-center text-center">
           <h1 className="font-display text-[26px] leading-none font-extrabold text-screen">
-            {isLevel ? `Level ${state.level}` : 'Custom board'}
+            {title ?? (isLevel ? `Level ${state.level}` : 'Custom board')}
           </h1>
           <p className="text-xs font-extrabold whitespace-nowrap text-screen-soft">
             {state.rows}×{state.columns} · {modeLabel}
@@ -189,6 +205,7 @@ export function GameScreen({
             state={state}
             interactive={interactive}
             pendingEdgeId={view.pendingEdgeId}
+            hintEdgeId={hintEdgeId}
             lastEvent={view.lastEvent}
             maxHeight={boardMaxHeight}
             showHints={captureHints}
@@ -217,9 +234,11 @@ export function GameScreen({
         <p className="text-center text-xs font-extrabold text-screen-soft">
           {claimed} / {total} boxes claimed
         </p>
+        {goal}
       </div>
 
       <TurnBanner view={view} />
+      {actions}
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
       </div>
@@ -280,6 +299,7 @@ export function GameScreen({
         onNextLevel={onNextLevel}
         onNewGame={onNewGame}
         onHome={onExit}
+        overrides={result}
       />
     </div>
   );

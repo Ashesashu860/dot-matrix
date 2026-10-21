@@ -52,7 +52,12 @@ export class CpuController extends LocalController {
     const started = Date.now();
     let edgeId: string;
     try {
-      edgeId = await this.runner.choose(state, this.difficulty, this.setup.seed + state.totalMoves);
+      edgeId = await this.runner.choose(
+        state,
+        this.difficulty,
+        this.setup.seed + state.totalMoves,
+        this.setup.cpuOptions,
+      );
       const remaining = (this.cpuHooks.minThinkMs ?? 450) - (Date.now() - started);
       if (remaining > 0) await (this.cpuHooks.wait ?? defaultWait)(remaining);
     } catch (error) {

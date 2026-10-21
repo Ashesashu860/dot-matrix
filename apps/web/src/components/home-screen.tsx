@@ -1,5 +1,6 @@
 'use client';
 
+import { puzzleNumber } from '@dots/cpu-engine';
 import { getLevel } from '@dots/game-engine';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -8,9 +9,10 @@ import { BrandLogo, Wordmark } from '@/components/brand-logo';
 import { Chunky, Screen } from '@/components/kit';
 import { InstallHint } from '@/components/pwa/install-hint';
 import { InstallSheet } from '@/components/pwa/install-sheet';
+import { DAILY_ATTEMPTS, dailyStreak, isDone } from '@/lib/daily';
 import { navigate } from '@/lib/navigation';
-import { loadSavedGame } from '@/persistence/db';
-import type { SavedGame } from '@/persistence/db';
+import { loadDaily, loadSavedGame } from '@/persistence/db';
+import type { DailyProgress, SavedGame } from '@/persistence/db';
 import { useProgress } from '@/stores/progress-store';
 import { useSession } from '@/stores/session-store';
 
@@ -49,6 +51,51 @@ function Backdrop() {
         />
       ))}
     </div>
+  );
+}
+
+/** Today's puzzle number, status and streak. */
+function DailyCard() {
+  const [today] = useState(() => puzzleNumber(new Date()));
+  const [daily, setDaily] = useState<DailyProgress | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadDaily().then((d) => !cancelled && setDaily(d));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const result = daily?.results[today];
+  const streak = daily ? dailyStreak(daily.results, today) : 0;
+  const status = result?.solved
+    ? 'Solved ✓'
+    : isDone(result)
+      ? 'Out of tries'
+      : result?.attempts
+        ? `${DAILY_ATTEMPTS - result.attempts} tries left`
+        : 'New puzzle';
+
+  return (
+    <Chunky asChild tone="dark" lift={6} className="flex items-center gap-3 rounded-[22px] px-4 py-3">
+      <Link href="/daily">
+        <span aria-hidden="true" className="grid size-10 flex-none grid-cols-2 gap-1 rounded-xl bg-white p-2">
+          <span className="rounded-[3px] bg-pink" />
+          <span className="rounded-[3px] bg-blue" />
+          <span className="rounded-[3px] bg-amber" />
+          <span className="rounded-[3px] border-2 border-dashed border-ink/40" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span className="text-xl leading-tight">Daily Puzzle #{today}</span>
+          <span className="font-sans text-xs font-extrabold opacity-80">
+            {status}
+            {streak > 0 && ` · ${streak} day streak`}
+          </span>
+        </span>
+        <span className="text-[30px] leading-none" aria-hidden="true">›</span>
+      </Link>
+    </Chunky>
   );
 }
 
@@ -112,6 +159,8 @@ export function HomeScreen() {
             </span>
           </Chunky>
         )}
+
+        <DailyCard />
 
         <nav aria-label="Game modes" className="flex flex-col gap-3">
           <Chunky asChild tone="pink" lift={7} glow className="flex h-20 items-center gap-3.5 rounded-[26px] pr-5 pl-4">

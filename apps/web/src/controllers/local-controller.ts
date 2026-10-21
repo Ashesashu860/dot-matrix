@@ -1,6 +1,7 @@
-import { applyMove, createGame } from '@dots/game-engine';
-import type { CreateGameOptions, GameState } from '@dots/game-engine';
+import { applyMove, createGame, replay } from '@dots/game-engine';
+import type { CreateGameOptions, GameState, MoveRecord } from '@dots/game-engine';
 import type { Difficulty } from '@dots/cpu-engine';
+import type { SearchOptions } from '@/workers/cpu-protocol';
 import { BaseController } from './base-controller';
 
 /** What is needed to recreate a local/CPU game (saved with it in IndexedDB). */
@@ -10,6 +11,11 @@ export interface LocalGameSetup {
   seed: number;
   /** vs CPU: the first bot opens instead of the human (kept for rematches). */
   cpuFirst?: boolean;
+  /** Start from a position: these moves are replayed, beginning with `firstPlayerId`. */
+  initialMoves?: MoveRecord[];
+  firstPlayerId?: string;
+  /** Raised CPU search limits (puzzles, where the bot must play perfectly). */
+  cpuOptions?: SearchOptions;
 }
 
 export interface LocalControllerHooks {
@@ -23,8 +29,13 @@ export interface LocalControllerHooks {
 
 export function newLocalGame(setup: LocalGameSetup, gameId: string, now: number): GameState {
   const state = createGame({ ...setup.create, gameId, startedAt: now });
-  const firstCpu = state.players.findIndex((p) => p.type === 'cpu');
-  return setup.cpuFirst && firstCpu >= 0 ? { ...state, currentPlayerIndex: firstCpu } : state;
+  const first = setup.firstPlayerId
+    ? state.players.findIndex((p) => p.id === setup.firstPlayerId)
+    : setup.cpuFirst
+      ? state.players.findIndex((p) => p.type === 'cpu')
+      : -1;
+  const start = first >= 0 ? { ...state, currentPlayerIndex: first } : state;
+  return setup.initialMoves?.length ? replay(start, setup.initialMoves) : start;
 }
 
 /** Local multiplayer: the in-browser engine is the authority. */

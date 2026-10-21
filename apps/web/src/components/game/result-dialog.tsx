@@ -4,6 +4,7 @@ import { computeResultSummary, getLevel } from '@dots/game-engine';
 import type { GameState } from '@dots/game-engine';
 import { PLAYER_COLORS } from '@dots/protocol';
 import { Dialog as DialogPrimitive } from 'radix-ui';
+import type { ReactNode } from 'react';
 import { Chunky } from '@/components/kit';
 import { InstallSheet } from '@/components/pwa/install-sheet';
 import { darkShade, formatClock, inkOn, shapeForIndex } from '@/lib/players';
@@ -45,6 +46,17 @@ function Rays({ color }: { color: string }) {
   );
 }
 
+/** Replaces the default result copy (puzzles and other goal-based games). */
+export interface ResultOverrides {
+  headline?: string;
+  sub?: string;
+  /** Whether the result counts as a success, for the celebration. */
+  success?: boolean;
+  rematchLabel?: string;
+  /** Shown between the stats and the buttons. */
+  extra?: ReactNode;
+}
+
 export function ResultDialog({
   state,
   open,
@@ -55,6 +67,7 @@ export function ResultDialog({
   onNextLevel,
   onNewGame,
   onHome,
+  overrides = {},
 }: {
   state: GameState;
   open: boolean;
@@ -66,6 +79,7 @@ export function ResultDialog({
   onNextLevel?: () => void;
   onNewGame?: () => void;
   onHome(): void;
+  overrides?: ResultOverrides;
 }) {
   if (state.status !== 'finished') return null;
   const summary = computeResultSummary(state);
@@ -75,8 +89,8 @@ export function ResultDialog({
   const iWon = perspectiveId !== null && !summary.isDraw && summary.winnerIds.includes(perspectiveId);
   const topScore = Math.max(...summary.players.map((p) => p.score));
 
-  const headline = summary.isDraw ? "It's a draw!" : iWon ? 'You win!' : `${winner?.name ?? 'Someone'} wins!`;
-  const sub = summary.isDraw
+  const headline = overrides.headline ?? (summary.isDraw ? "It's a draw!" : iWon ? 'You win!' : `${winner?.name ?? 'Someone'} wins!`);
+  const sub = overrides.sub ?? (summary.isDraw
     ? 'Evenly matched — go again?'
     : iWon && state.mode === 'cpu' && getLevel(state.level)
       ? onNextLevel
@@ -84,7 +98,7 @@ export function ResultDialog({
         : `Level ${state.level} cleared`
       : perspectiveId === null || iWon
         ? `${topScore} of ${total} boxes captured`
-        : 'So close — rematch?';
+        : 'So close — rematch?');
 
   const color = summary.isDraw || !winner ? '#2B1B4A' : winner.color;
   const edge = summary.isDraw || !winner ? '#000000' : darkShade(winner.color);
@@ -93,7 +107,7 @@ export function ResultDialog({
   const primary = onNextLevel
     ? { label: 'Next level →', run: onNextLevel }
     : onRematch
-      ? { label: 'Rematch', run: onRematch }
+      ? { label: overrides.rematchLabel ?? 'Rematch', run: onRematch }
       : onNewGame
         ? { label: 'New game', run: onNewGame }
         : null;
@@ -121,7 +135,7 @@ export function ResultDialog({
             backgroundSize: '18px 18px',
           }}
         >
-          {!(perspectiveId !== null && !iWon && !summary.isDraw) && <Confetti />}
+          {(overrides.success ?? !(perspectiveId !== null && !iWon && !summary.isDraw)) && <Confetti />}
           <div className="relative mx-auto flex min-h-dvh w-full max-w-[430px] flex-col items-center gap-3 px-5 pt-[max(env(safe-area-inset-top),14px)] pb-[max(env(safe-area-inset-bottom),28px)] animate-[bh-rise_.4s_ease-out]">
             <div className="relative flex size-40 items-center justify-center">
               <Rays color={color} />
@@ -180,6 +194,7 @@ export function ResultDialog({
               ))}
             </dl>
 
+            {overrides.extra}
             <div className="flex-1" />
             {primary && (
               <Chunky tone="pink" lift={7} glow onClick={primary.run} className="h-[72px] w-full rounded-3xl text-[28px] leading-none">
