@@ -1,8 +1,8 @@
 import type { Difficulty, Puzzle, StrategyOptions } from '@dots/cpu-engine';
 import type { GameState } from '@dots/game-engine';
 
-/** Search limits a game may raise (puzzles); the seed is passed separately. */
-export type SearchOptions = Pick<StrategyOptions, 'exactSearchMaxFreeEdges' | 'exactSearchNodeBudget'>;
+/** Strategy tuning a game may set (search limits, Easy's mistake rates); the seed is passed separately. */
+export type BotOptions = Omit<StrategyOptions, 'seed'>;
 
 export type CpuRequest =
   | {
@@ -11,7 +11,7 @@ export type CpuRequest =
       state: GameState;
       difficulty: Difficulty;
       seed: number;
-      options?: SearchOptions;
+      options?: BotOptions;
     }
   | { kind: 'puzzle'; requestId: number; no: number };
 

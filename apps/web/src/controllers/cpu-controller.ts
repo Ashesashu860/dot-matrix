@@ -1,8 +1,7 @@
-import type { Difficulty } from '@dots/cpu-engine';
 import type { GameState } from '@dots/game-engine';
 import type { CpuRunner } from '@/workers/cpu-runner';
 import { LocalController } from './local-controller';
-import type { LocalControllerHooks, LocalGameSetup } from './local-controller';
+import type { LocalControllerHooks, LocalGameSetup, LoggedMove } from './local-controller';
 
 export interface CpuControllerHooks extends LocalControllerHooks {
   /** Minimum time a CPU appears to "think", so moves are readable. */
@@ -25,16 +24,17 @@ export class CpuController extends LocalController {
     setup: LocalGameSetup,
     runner: CpuRunner,
     hooks: CpuControllerHooks = {},
+    log: readonly LoggedMove[] = [],
   ) {
-    super(state, setup, hooks);
+    super(state, setup, hooks, log);
     this.runner = runner;
     this.cpuHooks = hooks;
     // A resumed game may be waiting on a CPU move.
     queueMicrotask(() => this.afterMove());
   }
 
-  private get difficulty(): Difficulty {
-    return this.setup.difficulty ?? 'medium';
+  private bot(cpuId: string) {
+    return this.setup.bots?.[cpuId] ?? { difficulty: this.setup.difficulty ?? 'medium', options: this.setup.cpuOptions };
   }
 
   protected override afterMove(): void {
@@ -52,12 +52,8 @@ export class CpuController extends LocalController {
     const started = Date.now();
     let edgeId: string;
     try {
-      edgeId = await this.runner.choose(
-        state,
-        this.difficulty,
-        this.setup.seed + state.totalMoves,
-        this.setup.cpuOptions,
-      );
+      const { difficulty, options } = this.bot(cpuId);
+      edgeId = await this.runner.choose(state, difficulty, this.setup.seed + state.totalMoves, options);
       const remaining = (this.cpuHooks.minThinkMs ?? 450) - (Date.now() - started);
       if (remaining > 0) await (this.cpuHooks.wait ?? defaultWait)(remaining);
     } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import type { Difficulty } from '@dots/cpu-engine';
-import { CUSTOM_LEVEL, MAX_PLAYERS, cellCount, getLevel } from '@dots/game-engine';
+import { CUSTOM_LEVEL, MAX_PLAYERS, cellCount } from '@dots/game-engine';
 import type { PlayerInit } from '@dots/game-engine';
 import { PLAYER_COLORS, PLAYER_NAME_MAX, sanitizePlayerName } from '@dots/protocol';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -14,7 +14,6 @@ import { Switch } from '@/components/ui/switch';
 import type { LocalGameSetup } from '@/controllers/local-controller';
 import { navigate } from '@/lib/navigation';
 import { shapeForIndex } from '@/lib/players';
-import { useProgress } from '@/stores/progress-store';
 import { useSession } from '@/stores/session-store';
 import { useSettings } from '@/stores/settings-store';
 
@@ -32,7 +31,6 @@ export function SetupScreen() {
   const params = useSearchParams();
   const mode: Mode = params.get('mode') === 'local' ? 'local' : 'cpu';
   const settings = useSettings();
-  const unlockedLevel = useProgress((s) => s.unlockedLevel);
 
   const [playerCount, setPlayerCount] = useState(2);
   const [names, setNames] = useState<string[]>(settings.lastPlayerNames);
@@ -48,13 +46,6 @@ export function SetupScreen() {
     setExtraTurn(settings.extraTurnOnCapture);
   }, [settings.hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Default CPU games to the highest unlocked level.
-  useEffect(() => {
-    if (mode !== 'cpu') return;
-    const def = getLevel(unlockedLevel);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (def) setBoard({ level: def.level, rows: def.rows, columns: def.columns });
-  }, [mode, unlockedLevel]);
 
   const start = async () => {
     const cleanNames = names.map((n, i) => sanitizePlayerName(n) || `Player ${i + 1}`);
@@ -104,7 +95,7 @@ export function SetupScreen() {
 
   return (
     <PageShell
-      title={mode === 'cpu' ? 'Play vs CPU' : 'Local game'}
+      title={mode === 'cpu' ? 'Quick play' : 'Local game'}
       footer={
         <Chunky tone="pink" lift={7} glow onClick={start} className="flex h-[72px] w-full flex-col items-center justify-center gap-0.5 rounded-3xl">
           <span className="text-[26px] leading-none">{custom ? 'Start custom game' : `Start level ${board.level}`}</span>
@@ -185,8 +176,8 @@ export function SetupScreen() {
         </Section>
       )}
 
-      <Section title="Level" description={mode === 'cpu' ? 'Win a level to unlock the next.' : undefined}>
-        <BoardPicker value={board} onChange={setBoard} unlockedLevel={mode === 'cpu' ? unlockedLevel : undefined} />
+      <Section title="Board">
+        <BoardPicker value={board} onChange={setBoard} />
       </Section>
 
       <section className="card-3d flex items-center gap-3 px-4 py-3.5">

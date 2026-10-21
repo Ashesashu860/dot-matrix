@@ -9,6 +9,7 @@ import { BrandLogo, Wordmark } from '@/components/brand-logo';
 import { Chunky, Screen } from '@/components/kit';
 import { InstallHint } from '@/components/pwa/install-hint';
 import { InstallSheet } from '@/components/pwa/install-sheet';
+import { MAX_STARS, currentStage, totalStars } from '@/lib/campaign';
 import { DAILY_ATTEMPTS, dailyStreak, isDone } from '@/lib/daily';
 import { navigate } from '@/lib/navigation';
 import { loadDaily, loadSavedGame } from '@/persistence/db';
@@ -102,7 +103,9 @@ function DailyCard() {
 export function HomeScreen() {
   const router = useRouter();
   const [saved, setSaved] = useState<SavedGame | null>(null);
-  const unlocked = useProgress((s) => s.unlockedLevel);
+  const campaign = useProgress((s) => s.campaign);
+  const stars = totalStars(campaign);
+  const stage = currentStage(campaign);
   const streak = useProgress((s) => s.stats.currentWinStreak);
 
   useEffect(() => {
@@ -125,10 +128,12 @@ export function HomeScreen() {
       <Screen className="gap-3.5 px-5 pb-[max(env(safe-area-inset-bottom),30px)]">
         <div className="flex items-center justify-between gap-2 pt-2.5">
           <span className="flex items-center gap-2 rounded-full bg-white py-[5px] pr-3.5 pl-[5px] shadow-[0_3px_0_#EADFCB]">
-            <span className="flex size-7 items-center justify-center rounded-full bg-amber font-display text-[15px] leading-none font-extrabold text-ink">
-              {unlocked}
+            <span aria-hidden="true" className="flex size-7 items-center justify-center rounded-full bg-amber font-display text-[15px] leading-none font-extrabold text-ink">
+              ★
             </span>
-            <span className="text-[13px] font-extrabold whitespace-nowrap text-ink">Level {unlocked} unlocked</span>
+            <span className="text-[13px] font-extrabold whitespace-nowrap text-ink">
+              {stars} / {MAX_STARS} stars
+            </span>
           </span>
           <Link
             href="/stats"
@@ -152,8 +157,10 @@ export function HomeScreen() {
             <span className="flex min-w-0 flex-col">
               <span className="text-xl leading-tight">Resume game</span>
               <span className="truncate font-sans text-xs font-extrabold opacity-80">
-                {saved.state.mode === 'cpu' ? 'vs CPU' : 'Local'} ·{' '}
-                {getLevel(saved.state.level) ? `Level ${saved.state.level}` : `${saved.state.rows}×${saved.state.columns}`} ·{' '}
+                {saved.setup.campaignStage
+                  ? `Stage ${saved.setup.campaignStage}`
+                  : `${saved.state.mode === 'cpu' ? 'vs CPU' : 'Local'} · ${getLevel(saved.state.level) ? `Level ${saved.state.level}` : `${saved.state.rows}×${saved.state.columns}`}`}{' '}
+                ·{' '}
                 {saved.state.players.map((p) => `${p.name} ${p.score}`).join(' – ')}
               </span>
             </span>
@@ -164,35 +171,34 @@ export function HomeScreen() {
 
         <nav aria-label="Game modes" className="flex flex-col gap-3">
           <Chunky asChild tone="pink" lift={7} glow className="flex h-20 items-center gap-3.5 rounded-[26px] pr-5 pl-4">
-            <Link href="/play/setup?mode=cpu">
+            <Link href="/campaign">
               <span aria-hidden="true" className="flex size-12 flex-none items-center justify-center rounded-full bg-white pl-1 text-xl text-[#DB1F63]">▶</span>
               <span className="flex flex-1 flex-col gap-[3px]">
-                <span className="text-[27px] leading-none">Play vs CPU</span>
-                <span className="font-sans text-[13px] font-extrabold">Level {unlocked} · beat the bots</span>
+                <span className="text-[27px] leading-none">Campaign</span>
+                <span className="font-sans text-[13px] font-extrabold">
+                  {stars ? `Stage ${stage.id} · ${stars} ★` : 'Start with stage 1-1'}
+                </span>
               </span>
               <span className="text-[34px] leading-none" aria-hidden="true">›</span>
             </Link>
           </Chunky>
-          <div className="grid grid-cols-2 gap-3">
-            <Chunky asChild tone="blue" lift={7} className="flex h-[104px] flex-col items-start gap-2 rounded-3xl p-4">
-              <Link href="/play/setup?mode=local">
-                <span aria-hidden="true" className="flex gap-1">
-                  <span className="size-3 rounded-full bg-white" />
-                  <span className="size-3 rounded-full bg-white opacity-70" />
-                </span>
-                <span className="text-[22px] leading-none">Local Game</span>
-                <span className="font-sans text-xs leading-tight font-extrabold">2–4 on one phone</span>
+          <div className="grid grid-cols-3 gap-2.5">
+            <Chunky asChild tone="green" lift={6} className="flex h-[92px] flex-col items-start justify-end gap-1 rounded-3xl p-3">
+              <Link href="/play/setup?mode=cpu">
+                <span className="text-[19px] leading-none">Quick play</span>
+                <span className="font-sans text-[11px] leading-tight font-extrabold">vs the bots</span>
               </Link>
             </Chunky>
-            <Chunky asChild tone="amber" lift={7} className="flex h-[104px] flex-col items-start gap-2 rounded-3xl p-4">
+            <Chunky asChild tone="blue" lift={6} className="flex h-[92px] flex-col items-start justify-end gap-1 rounded-3xl p-3">
+              <Link href="/play/setup?mode=local">
+                <span className="text-[19px] leading-none">Local Game</span>
+                <span className="font-sans text-[11px] leading-tight font-extrabold">2–4 on one phone</span>
+              </Link>
+            </Chunky>
+            <Chunky asChild tone="amber" lift={6} className="flex h-[92px] flex-col items-start justify-end gap-1 rounded-3xl p-3">
               <Link href="/online">
-                <span aria-hidden="true" className="flex items-center gap-1">
-                  <span className="size-3 rounded-full bg-ink" />
-                  <span className="h-[3px] w-3.5 rounded-sm bg-ink" />
-                  <span className="size-3 rounded-full bg-ink" />
-                </span>
-                <span className="text-[22px] leading-none">Online</span>
-                <span className="font-sans text-xs leading-tight font-extrabold">Private rooms</span>
+                <span className="text-[19px] leading-none">Online</span>
+                <span className="font-sans text-[11px] leading-tight font-extrabold">Private rooms</span>
               </Link>
             </Chunky>
           </div>

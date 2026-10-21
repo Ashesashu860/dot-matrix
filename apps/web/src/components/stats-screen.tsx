@@ -2,6 +2,7 @@
 
 import { getLevel } from '@dots/game-engine';
 import { PageShell, Section } from '@/components/page-shell';
+import { totalStars } from '@/lib/campaign';
 import { formatDuration, textShade } from '@/lib/players';
 import { useProgress } from '@/stores/progress-store';
 
@@ -13,7 +14,7 @@ const OUTCOME_STYLE = {
 } as const;
 
 export function StatsScreen() {
-  const { stats, history, unlockedLevel, hydrated } = useProgress();
+  const { stats, history, campaign, hydrated } = useProgress();
 
   const tiles: Array<[string, number | string, string]> = [
     ['Played', stats.gamesPlayed, '#2B1B4A'],
@@ -24,7 +25,7 @@ export function StatsScreen() {
     ['Best streak', stats.longestWinStreak, '#0F7A40'],
     ['Top level won', stats.highestLevel || '—', '#DB1F63'],
     ['Win streak', stats.currentWinStreak, '#0F7A40'],
-    ['Unlocked', unlockedLevel, '#0A73CC'],
+    ['Stars', totalStars(campaign), '#0A73CC'],
   ];
 
   return (

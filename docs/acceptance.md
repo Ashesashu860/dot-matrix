@@ -3,7 +3,7 @@
 | # | Criterion | Status | Evidence |
 | --- | --- | --- | --- |
 | 1 | Start CPU or local play without an account | ✅ | e2e `home offers every mode without an account`; Firebase is loaded only by `/online` routes |
-| 2 | Choose 2–4 players and a supported board size | ✅ | Setup screen (levels 1–8 + custom 3–12 dots); e2e plays 2- and 3-player games |
+| 2 | Choose 2–4 players and a supported board size | ✅ | Quick play setup (levels 1–8, all open, + custom sizes); e2e plays 2- and 3-player games. Progression lives in the 40-stage star campaign (`lib/campaign.ts`); every goal is checked reachable in `campaign.test.ts` |
 | 3 | Only adjacent horizontal/vertical connections | ✅ | `game-engine` tests: diagonal, long, identical, off-board, malformed IDs |
 | 4 | A completed cell gives exactly one point to the mover | ✅ | Engine test `completes a single cell and awards it to the mover` |
 | 5 | One move can claim two neighbouring cells | ✅ | Engine test `completes two neighbouring cells with one edge` |

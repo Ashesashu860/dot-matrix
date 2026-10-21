@@ -1,13 +1,19 @@
 'use client';
 
 import { MAX_LEVEL, getLevel } from '@dots/game-engine';
+import type { GameState } from '@dots/game-engine';
 import { Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { GameScreen } from '@/components/game/game-screen';
+import type { ResultOverrides } from '@/components/game/result-dialog';
+import { LocalController } from '@/controllers/local-controller';
 import type { GameController } from '@/controllers/types';
+import { chapterUnlocked, getStage, goalLabel, goalShort, goalsMet, nextStage, stageSetup } from '@/lib/campaign';
+import type { Stage } from '@/lib/campaign';
 import { navigate } from '@/lib/navigation';
 import { clearSavedGame, loadSavedGame } from '@/persistence/db';
+import { useProgress } from '@/stores/progress-store';
 import { useSession } from '@/stores/session-store';
 
 const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard' } as const;
@@ -43,6 +49,40 @@ export function PlayScreen() {
   return <ActiveGame controller={controller} />;
 }
 
+/** Stars, goal checklist and the next stage for a finished campaign game. */
+function useCampaignGame(stage: Stage | undefined, controller: GameController, state: GameState) {
+  const progress = useProgress((s) => s.campaign);
+  if (!stage) return null;
+  const log = controller instanceof LocalController ? controller.getLog() : [];
+  const met = state.status === 'finished' ? goalsMet(stage, state, log) : [false, false, false];
+  const stars = met.filter(Boolean).length;
+  const following = nextStage(stage.id);
+  // Stars are saved as the game ends, so a clear opens the next stage straight away.
+  const nextOpen =
+    following &&
+    stars > 0 &&
+    (following.chapter === stage.chapter || chapterUnlocked(progress, following.chapter));
+  const result: ResultOverrides = {
+    headline: stars ? (stars === 3 ? 'Perfect!' : 'Stage cleared!') : undefined,
+    sub: stars ? `${stars} of 3 stars` : 'No stars this time. Rematch?',
+    success: stars > 0,
+    extra: (
+      <ul className="card-3d flex w-full flex-col gap-2 px-4 py-3" aria-label="Goals">
+        {stage.goals.map((goal, i) => (
+          <li key={i} className="flex items-center gap-2.5 text-sm font-extrabold text-ink">
+            <span aria-hidden="true" className={met[i] ? 'text-xl text-amber' : 'text-xl text-[#D9CFE6]'}>
+              ★
+            </span>
+            <span className="flex-1">{goalLabel(goal)}</span>
+            <span className="sr-only">{met[i] ? 'done' : 'not done'}</span>
+          </li>
+        ))}
+      </ul>
+    ),
+  };
+  return { result, next: nextOpen ? following : undefined };
+}
+
 function ActiveGame({ controller }: { controller: GameController }) {
   const router = useRouter();
   const setup = useSession((s) => s.setup)!;
@@ -53,12 +93,47 @@ function ActiveGame({ controller }: { controller: GameController }) {
   const next = getLevel(state.level + 1);
   const canAdvance = setup.create.mode === 'cpu' && humanWon && getLevel(state.level) && state.level < MAX_LEVEL && next;
 
+  const stage = setup.campaignStage ? getStage(setup.campaignStage) : undefined;
+  const campaign = useCampaignGame(stage, controller, state);
+
   const exit = () => {
     // A finished game is already recorded; an unfinished one stays saved for "Resume".
     if (state.status === 'finished') void clearSavedGame();
     useSession.getState().end();
-    navigate(router, '/');
+    navigate(router, stage ? '/campaign' : '/');
   };
+
+  if (stage && campaign) {
+    return (
+      <GameScreen
+        controller={controller}
+        perspectiveId={human?.id ?? null}
+        title={`Stage ${stage.id}`}
+        onExit={exit}
+        onRematch={() => controller.restart?.()}
+        onNewGame={() => {
+          useSession.getState().end();
+          navigate(router, '/campaign');
+        }}
+        onNextLevel={
+          campaign.next
+            ? () => void useSession.getState().startLocal(stageSetup(campaign.next!, setup.seed + 1))
+            : undefined
+        }
+        goal={
+          <p className="text-center text-[11px] font-extrabold text-screen-soft">
+            {stage.goals.map((g, i) => (
+              <span key={i} className="whitespace-nowrap">
+                {i > 0 && ' · '}
+                <span className="text-amber" aria-hidden="true">★</span> {goalShort(g)}
+              </span>
+            ))}
+          </p>
+        }
+        result={campaign.result}
+      />
+    );
+  }
 
   return (
     <GameScreen

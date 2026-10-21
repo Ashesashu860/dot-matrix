@@ -45,7 +45,7 @@ test('the CPU worker runs from the service worker cache while offline', async ({
   await context.setOffline(true);
   await page.reload();
   await page.waitForLoadState('networkidle');
-  await page.getByRole('link', { name: /Play vs CPU/ }).click();
+  await page.getByRole('link', { name: /Quick play/ }).click();
   await page.getByRole('radio', { name: 'Easy' }).click();
   await page.getByRole('button', { name: /Start level/ }).click();
   await expect(page.locator('[data-edge]')).toHaveCount(24);

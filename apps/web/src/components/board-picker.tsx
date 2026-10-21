@@ -4,9 +4,7 @@ import { CUSTOM_LEVEL, LEVELS, MIN_DOTS, cellCount } from '@dots/game-engine';
 import { useEffect, useState } from 'react';
 import { Chunky } from '@/components/kit';
 import { useBoardLimits } from '@/lib/board-limits';
-import { playSound } from '@/lib/feedback';
 import { cn } from '@/lib/utils';
-import { useSettings } from '@/stores/settings-store';
 
 export interface BoardChoice {
   level: number;
@@ -16,22 +14,19 @@ export interface BoardChoice {
 
 const tile = 'flex flex-col items-center justify-center gap-0.5 rounded-[18px] transition-all duration-150';
 
-/** Level tiles plus a custom-size option. `unlockedLevel` locks higher levels (CPU mode). */
+/** Level tiles plus a custom-size option. */
 export function BoardPicker({
   value,
   onChange,
-  unlockedLevel,
   allowCustom = true,
   maxDots,
 }: {
   value: BoardChoice;
   onChange(value: BoardChoice): void;
-  unlockedLevel?: number;
   allowCustom?: boolean;
   /** Tighter cap than the screen allows (online rooms). */
   maxDots?: number;
 }) {
-  const sound = useSettings((s) => s.sound);
   const custom = value.level === CUSTOM_LEVEL;
   const screenLimits = useBoardLimits();
   const limits = maxDots
@@ -48,29 +43,20 @@ export function BoardPicker({
     <div className="flex flex-col gap-2">
       <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-label="Level">
         {LEVELS.map((l) => {
-          const locked = unlockedLevel !== undefined && l.level > unlockedLevel;
           const selected = value.level === l.level;
           return (
             <Chunky
               key={l.level}
               role="radio"
               aria-checked={selected}
-              aria-disabled={locked}
-              aria-label={`Level ${l.level}, ${l.rows} by ${l.columns} dots${locked ? ', locked' : ''}`}
+              aria-label={`Level ${l.level}, ${l.rows} by ${l.columns} dots`}
               tone={selected ? 'pink' : 'soft'}
               lift={4}
-              onClick={() => {
-                if (locked) {
-                  if (sound) playSound('error');
-                  return;
-                }
-                onChange({ level: l.level, rows: l.rows, columns: l.columns });
-              }}
-              className={cn(tile, 'h-[72px]', locked && 'shadow-none!')}
-              style={locked ? { background: '#F1ECF6', color: '#A597BD' } : undefined}
+              onClick={() => onChange({ level: l.level, rows: l.rows, columns: l.columns })}
+              className={cn(tile, 'h-[72px]')}
             >
               <span className="text-[26px] leading-none">{l.level}</span>
-              <span className="font-sans text-[11px] font-extrabold">{locked ? 'Locked' : `${l.rows}×${l.columns}`}</span>
+              <span className="font-sans text-[11px] font-extrabold">{`${l.rows}×${l.columns}`}</span>
             </Chunky>
           );
         })}

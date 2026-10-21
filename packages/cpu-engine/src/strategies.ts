@@ -32,6 +32,10 @@ export interface StrategyOptions {
   /** Max free edges for the exact endgame solver (Hard, 2 players). */
   exactSearchMaxFreeEdges?: number;
   exactSearchNodeBudget?: number;
+  /** Easy only: chance to take an available capture (default 0.75). */
+  easyCaptureChance?: number;
+  /** Easy only: chance to play a safe move when one exists (default 0.7). */
+  easySafeChance?: number;
 }
 
 type Picker = (pos: Position, state: GameState, rng: Rng) => number;
@@ -80,13 +84,15 @@ function smallestSacrifice(pos: Position, rng: Rng, hardHearted: boolean): numbe
   return rng.pick(best).e;
 }
 
-const easy: Picker = (pos, _state, rng) => {
-  const captures = capturingMoves(pos);
-  if (captures.length && rng.next() < EASY_CAPTURE_CHANCE) return rng.pick(captures);
-  const safe = safeMoves(pos);
-  if (safe.length && rng.next() < EASY_SAFE_CHANCE) return rng.pick(safe);
-  return rng.pick(freeEdges(pos));
-};
+function easyPicker(captureChance: number, safeChance: number): Picker {
+  return (pos, _state, rng) => {
+    const captures = capturingMoves(pos);
+    if (captures.length && rng.next() < captureChance) return rng.pick(captures);
+    const safe = safeMoves(pos);
+    if (safe.length && rng.next() < safeChance) return rng.pick(safe);
+    return rng.pick(freeEdges(pos));
+  };
+}
 
 const medium: Picker = (pos, _state, rng) => {
   const captures = capturingMoves(pos);
@@ -155,7 +161,9 @@ function doubleDealingMove(pos: Position): number | null {
   return e;
 }
 
-function hardPicker(options: Required<Omit<StrategyOptions, 'seed'>>): Picker {
+function hardPicker(
+  options: Required<Pick<StrategyOptions, 'exactSearchMaxFreeEdges' | 'exactSearchNodeBudget'>>,
+): Picker {
   return (pos, state, rng) => {
     const twoPlayer = state.players.filter((p) => p.active).length === 2;
     const free = freeEdges(pos);
@@ -216,7 +224,10 @@ export function createCpuStrategy(
   const rng = createRng(options.seed ?? 0x5eed);
   const picker: Picker =
     difficulty === 'easy'
-      ? easy
+      ? easyPicker(
+          options.easyCaptureChance ?? EASY_CAPTURE_CHANCE,
+          options.easySafeChance ?? EASY_SAFE_CHANCE,
+        )
       : difficulty === 'medium'
         ? medium
         : hardPicker({ ...DEFAULTS, ...stripUndefined(options) });

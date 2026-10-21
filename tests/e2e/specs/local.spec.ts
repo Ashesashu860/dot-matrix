@@ -5,7 +5,7 @@ import { claimedCount, startLocalGame, tapEdge } from './helpers';
 test('home offers every mode without an account', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Dotsnatch' })).toBeVisible();
-  for (const name of ['Play vs CPU', 'Local Game', 'Online']) {
+  for (const name of ['Campaign', 'Quick play', 'Local Game', 'Online', 'Daily Puzzle']) {
     await expect(page.getByRole('link', { name: new RegExp(name) })).toBeVisible();
   }
   await page.screenshot({ path: 'test-results/home.png', fullPage: true });

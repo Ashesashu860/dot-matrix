@@ -3,7 +3,9 @@ import { emptyStats } from '@dots/game-engine';
 import type { GameResultSummary, GameState, PlayerStats } from '@dots/game-engine';
 import { openDB } from 'idb';
 import type { DBSchema, IDBPDatabase } from 'idb';
-import type { LocalGameSetup } from '@/controllers/local-controller';
+import type { LocalGameSetup, LoggedMove } from '@/controllers/local-controller';
+import { DEFAULT_CAMPAIGN } from '@/lib/campaign';
+import type { CampaignProgress } from '@/lib/campaign';
 
 /**
  * IndexedDB persistence for everything local (requirements §10.1). CPU/local play
@@ -43,7 +45,10 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export interface Progress {
-  /** Highest level unlocked for CPU play. */
+  /**
+   * Highest level unlocked by the old level ladder. No longer advances; it only
+   * grants campaign chapters to players from before the campaign.
+   */
   unlockedLevel: number;
 }
 
@@ -68,11 +73,13 @@ export interface SavedGame {
   state: GameState;
   setup: LocalGameSetup;
   savedAt: number;
+  /** Absent in saves from before move logging. */
+  log?: LoggedMove[];
 }
 
 export type HistoryEntry = GameResultSummary & { perspectivePlayerId: string | null };
 
-type KvKey = 'settings' | 'progress' | 'stats' | 'daily';
+type KvKey = 'settings' | 'progress' | 'stats' | 'daily' | 'campaign';
 
 interface DotsDB extends DBSchema {
   kv: {
@@ -137,6 +144,8 @@ export const loadProgress = () => getKv<Progress>('progress', DEFAULT_PROGRESS);
 export const saveProgress = (p: Progress) => setKv('progress', p);
 export const loadStats = () => getKv<PlayerStats>('stats', emptyStats());
 export const saveStats = (s: PlayerStats) => setKv('stats', s);
+export const loadCampaign = () => getKv<CampaignProgress>('campaign', DEFAULT_CAMPAIGN);
+export const saveCampaign = (c: CampaignProgress) => setKv('campaign', c);
 export const loadDaily = () => getKv<DailyProgress>('daily', DEFAULT_DAILY);
 export const saveDaily = (d: DailyProgress) => setKv('daily', d);
 
@@ -150,8 +159,8 @@ export async function loadSavedGame(): Promise<SavedGame | null> {
   }
 }
 
-export async function saveGame(state: GameState, setup: LocalGameSetup): Promise<void> {
-  const value: SavedGame = { state, setup, savedAt: Date.now() };
+export async function saveGame(state: GameState, setup: LocalGameSetup, log: readonly LoggedMove[] = []): Promise<void> {
+  const value: SavedGame = { state, setup, savedAt: Date.now(), log: [...log] };
   try {
     const d = await db();
     if (d) await d.put('savedGame', value, 'current');

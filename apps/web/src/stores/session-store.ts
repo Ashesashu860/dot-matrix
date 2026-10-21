@@ -3,7 +3,7 @@
 import { create } from 'zustand';
 import { CpuController } from '@/controllers/cpu-controller';
 import { LocalController, newLocalGame } from '@/controllers/local-controller';
-import type { LocalGameSetup } from '@/controllers/local-controller';
+import type { LocalGameSetup, LoggedMove } from '@/controllers/local-controller';
 import type { GameController } from '@/controllers/types';
 import { saveGame } from '@/persistence/db';
 import type { SavedGame } from '@/persistence/db';
@@ -26,18 +26,22 @@ function humanPerspective(setup: LocalGameSetup): string | null {
   return setup.create.players.find((p) => p.type === 'human')?.id ?? null;
 }
 
-function buildController(state: SavedGame['state'], setup: LocalGameSetup): GameController {
+function buildController(
+  state: SavedGame['state'],
+  setup: LocalGameSetup,
+  log: readonly LoggedMove[] = [],
+): GameController {
   const hooks = {
-    onChange: (s: SavedGame['state'], su: LocalGameSetup) => {
-      if (s.status === 'playing') void saveGame(s, su);
+    onChange: (s: SavedGame['state'], su: LocalGameSetup, l: readonly LoggedMove[]) => {
+      if (s.status === 'playing') void saveGame(s, su, l);
     },
-    onFinished: (s: SavedGame['state'], su: LocalGameSetup) => {
-      void useProgress.getState().recordGame(s, humanPerspective(su));
+    onFinished: (s: SavedGame['state'], su: LocalGameSetup, l: readonly LoggedMove[]) => {
+      void useProgress.getState().recordGame(s, humanPerspective(su), su.campaignStage ? { stage: su.campaignStage, log: l } : undefined);
     },
   };
   return setup.create.mode === 'cpu'
-    ? new CpuController(state, setup, sharedRunner(), hooks)
-    : new LocalController(state, setup, hooks);
+    ? new CpuController(state, setup, sharedRunner(), hooks, log)
+    : new LocalController(state, setup, hooks, log);
 }
 
 export const useSession = create<SessionStore>((set, get) => ({
@@ -53,7 +57,7 @@ export const useSession = create<SessionStore>((set, get) => ({
   },
   resume(saved) {
     get().controller?.dispose();
-    const controller = buildController(saved.state, saved.setup);
+    const controller = buildController(saved.state, saved.setup, saved.log);
     set({ controller, setup: saved.setup });
     return controller;
   },

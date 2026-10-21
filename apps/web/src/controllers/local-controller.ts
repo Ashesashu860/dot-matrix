@@ -1,7 +1,7 @@
 import { applyMove, createGame, replay } from '@dots/game-engine';
 import type { CreateGameOptions, GameState, MoveRecord } from '@dots/game-engine';
 import type { Difficulty } from '@dots/cpu-engine';
-import type { SearchOptions } from '@/workers/cpu-protocol';
+import type { BotOptions } from '@/workers/cpu-protocol';
 import { BaseController } from './base-controller';
 
 /** What is needed to recreate a local/CPU game (saved with it in IndexedDB). */
@@ -14,15 +14,27 @@ export interface LocalGameSetup {
   /** Start from a position: these moves are replayed, beginning with `firstPlayerId`. */
   initialMoves?: MoveRecord[];
   firstPlayerId?: string;
-  /** Raised CPU search limits (puzzles, where the bot must play perfectly). */
-  cpuOptions?: SearchOptions;
+  /** Strategy tuning for every bot (puzzles raise search limits so the bot plays perfectly). */
+  cpuOptions?: BotOptions;
+  /** Per-bot difficulty and tuning, by player ID; overrides `difficulty`/`cpuOptions`. */
+  bots?: Record<string, { difficulty: Difficulty; options?: BotOptions }>;
+  /** Campaign stage this game plays (see lib/campaign). */
+  campaignStage?: string;
+}
+
+/** A move as played in this game (moves replayed from a starting position excluded). */
+export interface LoggedMove {
+  edgeId: string;
+  playerId: string;
+  /** Boxes the move completed. */
+  cells: number;
 }
 
 export interface LocalControllerHooks {
   /** Called after every accepted move (persist the game). */
-  onChange?(state: GameState, setup: LocalGameSetup): void;
+  onChange?(state: GameState, setup: LocalGameSetup, log: readonly LoggedMove[]): void;
   /** Called once when the game ends (record history/stats). */
-  onFinished?(state: GameState, setup: LocalGameSetup): void;
+  onFinished?(state: GameState, setup: LocalGameSetup, log: readonly LoggedMove[]): void;
   now?(): number;
   newGameId?(): string;
 }
@@ -42,12 +54,24 @@ export function newLocalGame(setup: LocalGameSetup, gameId: string, now: number)
 export class LocalController extends BaseController {
   protected readonly hooks: LocalControllerHooks;
   readonly setup: LocalGameSetup;
+  private log: LoggedMove[];
 
-  constructor(state: GameState, setup: LocalGameSetup, hooks: LocalControllerHooks = {}) {
+  constructor(
+    state: GameState,
+    setup: LocalGameSetup,
+    hooks: LocalControllerHooks = {},
+    /** Moves already played (a resumed game). */
+    log: readonly LoggedMove[] = [],
+  ) {
     const humans = state.players.filter((p) => p.type === 'human').map((p) => p.id);
     super(state, humans);
     this.setup = setup;
     this.hooks = hooks;
+    this.log = [...log];
+  }
+
+  getLog(): readonly LoggedMove[] {
+    return this.log;
   }
 
   protected now(): number {
@@ -69,6 +93,7 @@ export class LocalController extends BaseController {
       this.update({ error: result.error });
       return false;
     }
+    this.log = [...this.log, { edgeId, playerId, cells: result.completedCells.length }];
     this.update({
       state: result.gameState,
       error: null,
@@ -81,8 +106,8 @@ export class LocalController extends BaseController {
         gameOver: result.gameOver,
       },
     });
-    this.hooks.onChange?.(result.gameState, this.setup);
-    if (result.gameOver) this.hooks.onFinished?.(result.gameState, this.setup);
+    this.hooks.onChange?.(result.gameState, this.setup, this.log);
+    if (result.gameOver) this.hooks.onFinished?.(result.gameState, this.setup, this.log);
     this.afterMove();
     return true;
   }
@@ -93,8 +118,9 @@ export class LocalController extends BaseController {
   restart(): void {
     const gameId = this.hooks.newGameId?.() ?? crypto.randomUUID();
     const state = newLocalGame(this.setup, gameId, this.now());
+    this.log = [];
     this.update({ state, lastEvent: null, paused: false, error: null });
-    this.hooks.onChange?.(state, this.setup);
+    this.hooks.onChange?.(state, this.setup, this.log);
     this.afterMove();
   }
 }
