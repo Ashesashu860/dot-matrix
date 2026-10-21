@@ -104,6 +104,8 @@ export function HomeScreen() {
   const router = useRouter();
   const [saved, setSaved] = useState<SavedGame | null>(null);
   const campaign = useProgress((s) => s.campaign);
+  const profile = useProgress((s) => s.profile);
+  const hydrated = useProgress((s) => s.hydrated);
   const stars = totalStars(campaign);
   const stage = currentStage(campaign);
   const streak = useProgress((s) => s.stats.currentWinStreak);
@@ -176,7 +178,9 @@ export function HomeScreen() {
               <span className="flex flex-1 flex-col gap-[3px]">
                 <span className="text-[27px] leading-none">Campaign</span>
                 <span className="font-sans text-[13px] font-extrabold">
-                  {stars ? `Stage ${stage.id} · ${stars} ★` : 'Start with stage 1-1'}
+                  {hydrated && !profile
+                    ? 'Create a profile to start'
+                    : `${profile ? `${profile.name} · ` : ''}${stars ? `Stage ${stage.id} · ${stars} ★` : 'Start with stage 1-1'}`}
                 </span>
               </span>
               <span className="text-[34px] leading-none" aria-hidden="true">›</span>

@@ -4,7 +4,7 @@ import { Volume1, Volume2 } from 'lucide-react';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useSyncExternalStore } from 'react';
-import { CardLabel } from '@/components/kit';
+import { CardLabel, PlayerToken } from '@/components/kit';
 import { PageShell } from '@/components/page-shell';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -35,6 +35,8 @@ const noopSubscribe = () => () => {};
 export function SettingsScreen() {
   const settings = useSettings();
   const stats = useProgress((s) => s.stats);
+  const profile = useProgress((s) => s.profile);
+  const profileCount = useProgress((s) => s.book.profiles.length);
   const { theme, setTheme } = useTheme();
   // Theme is only known on the client.
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false);
@@ -51,6 +53,27 @@ export function SettingsScreen() {
 
   return (
     <PageShell title="Settings">
+      <Link href="/profiles" className="card-3d flex items-center gap-3 px-4 py-3.5">
+        {profile ? (
+          <PlayerToken color={profile.color} shape={profile.shape} size={40} />
+        ) : (
+          <span aria-hidden="true" className="flex size-10 flex-none items-center justify-center rounded-full bg-soft text-xl font-extrabold text-label">
+            +
+          </span>
+        )}
+        <span className="flex min-w-0 flex-1 flex-col gap-px">
+          <span className="truncate text-[17px] font-extrabold text-ink">{profile ? profile.name : 'Create a profile'}</span>
+          <span className="text-[13px] font-bold text-label">
+            {profile
+              ? `${profileCount} ${profileCount === 1 ? 'profile' : 'profiles'} · switch, edit or reset progress`
+              : 'Needed for the campaign'}
+          </span>
+        </span>
+        <span aria-hidden="true" className="text-[28px] leading-none text-label">
+          ›
+        </span>
+      </Link>
+
       <section className="card-3d flex flex-col px-4 py-1">
         {TOGGLES.map(({ key, label, hint, volume }) => (
           <div key={key} className="flex flex-col gap-2.5 border-b-[1.5px] border-[#F3EEF8] py-[13px]">

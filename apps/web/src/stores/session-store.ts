@@ -36,7 +36,7 @@ function buildController(
       if (s.status === 'playing') void saveGame(s, su, l);
     },
     onFinished: (s: SavedGame['state'], su: LocalGameSetup, l: readonly LoggedMove[]) => {
-      void useProgress.getState().recordGame(s, humanPerspective(su), su.campaignStage ? { stage: su.campaignStage, log: l } : undefined);
+      void useProgress.getState().recordGame(s, humanPerspective(su), su.campaignStage ? { stage: su.campaignStage, log: l, profileId: su.profileId } : undefined);
     },
   };
   return setup.create.mode === 'cpu'

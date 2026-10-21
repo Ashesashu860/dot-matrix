@@ -200,10 +200,10 @@ const BOT_NAMES: Record<Difficulty, string> = { easy: 'Bolt', medium: 'Pixel', h
 
 export const HUMAN_ID = 'human';
 
-export function stagePlayers(stage: Stage): PlayerInit[] {
+export function stagePlayers(stage: Stage, name = 'You'): PlayerInit[] {
   const seen: Partial<Record<Difficulty, number>> = {};
   return [
-    { id: HUMAN_ID, name: 'You', type: 'human', color: PLAYER_COLORS[0] },
+    { id: HUMAN_ID, name, type: 'human', color: PLAYER_COLORS[0] },
     ...stage.bots.map((bot, i) => {
       const n = (seen[bot.difficulty] = (seen[bot.difficulty] ?? 0) + 1);
       return {
@@ -216,7 +216,8 @@ export function stagePlayers(stage: Stage): PlayerInit[] {
   ];
 }
 
-export function stageSetup(stage: Stage, seed: number): LocalGameSetup {
+/** `player` is the profile playing: it earns the stars and names the human seat. */
+export function stageSetup(stage: Stage, seed: number, player?: { id: string; name: string }): LocalGameSetup {
   return {
     create: {
       mode: 'cpu',
@@ -224,7 +225,7 @@ export function stageSetup(stage: Stage, seed: number): LocalGameSetup {
       rows: stage.rows,
       columns: stage.columns,
       ...(stage.shape && { shape: stage.shape }),
-      players: stagePlayers(stage),
+      players: stagePlayers(stage, player?.name),
       config: { extraTurnOnCapture: true },
     },
     seed,
@@ -239,6 +240,7 @@ export function stageSetup(stage: Stage, seed: number): LocalGameSetup {
       ]),
     ),
     campaignStage: stage.id,
+    ...(player && { profileId: player.id }),
   };
 }
 

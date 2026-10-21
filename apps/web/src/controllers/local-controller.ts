@@ -20,6 +20,8 @@ export interface LocalGameSetup {
   bots?: Record<string, { difficulty: Difficulty; options?: BotOptions }>;
   /** Campaign stage this game plays (see lib/campaign). */
   campaignStage?: string;
+  /** Profile that earns the campaign stars. */
+  profileId?: string;
 }
 
 /** A move as played in this game (moves replayed from a starting position excluded). */

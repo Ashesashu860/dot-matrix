@@ -11,7 +11,7 @@ import type { ResultOverrides } from '@/components/game/result-dialog';
 import { TurningPointCard } from '@/components/game/turning-point';
 import { HintButton, useHint } from '@/components/game/use-hint';
 import { LocalController } from '@/controllers/local-controller';
-import type { LoggedMove } from '@/controllers/local-controller';
+import type { LocalGameSetup, LoggedMove } from '@/controllers/local-controller';
 import type { GameController } from '@/controllers/types';
 import {
   chapterUnlocked,
@@ -64,6 +64,12 @@ export function PlayScreen() {
 const NO_LOG: readonly LoggedMove[] = [];
 const logOf = (controller: GameController) =>
   controller instanceof LocalController ? controller.getLog() : NO_LOG;
+
+/** The profile playing a campaign game, carried into the next stage. */
+function profilePlayer(setup: LocalGameSetup) {
+  const profile = useProgress.getState().book.profiles.find((p) => p.id === setup.profileId);
+  return profile && { id: profile.id, name: profile.name };
+}
 
 /** Stars, goal checklist and the next stage for a finished campaign game. */
 function useCampaignGame(
@@ -157,7 +163,9 @@ function ActiveGame({ controller }: { controller: GameController }) {
         onNextLevel={
           campaign.next
             ? () =>
-                void useSession.getState().startLocal(stageSetup(campaign.next!, setup.seed + 1))
+                void useSession.getState().startLocal(
+                  stageSetup(campaign.next!, setup.seed + 1, profilePlayer(setup)),
+                )
             : undefined
         }
         goal={

@@ -36,3 +36,12 @@ export function savedMoveCount(page: Page) {
       }),
   );
 }
+
+/** Create a profile from the campaign's "Who's playing?" gate. */
+export async function createProfile(page: Page, name = 'Ada') {
+  await page.goto('/campaign');
+  await expect(page.getByRole('heading', { name: 'Who’s playing?' })).toBeVisible();
+  await page.getByLabel('Name').fill(name);
+  await page.getByRole('button', { name: 'Create profile' }).click();
+  await expect(page.getByRole('link', { name: new RegExp(`Playing as ${name}`) })).toBeVisible();
+}

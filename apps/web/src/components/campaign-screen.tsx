@@ -3,8 +3,9 @@
 import { Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Chunky } from '@/components/kit';
+import { Chunky, PlayerToken } from '@/components/kit';
 import { PageShell } from '@/components/page-shell';
+import { ProfileForm } from '@/components/profile/profile-form';
 import {
   CHAPTERS,
   boxesIn,
@@ -36,28 +37,65 @@ function Stars({ n, className }: { n: number; className?: string }) {
   );
 }
 
+/** The campaign saves stars to a profile, so it asks for one first. */
+function ProfileGate({ hasProfiles }: { hasProfiles: boolean }) {
+  return (
+    <PageShell title="Campaign">
+      <section className="card-3d flex flex-col gap-3 p-4" aria-label="Create a profile">
+        <div className="flex flex-col gap-0.5">
+          <h2 className="font-display text-[24px] leading-tight font-extrabold text-ink">Who’s playing?</h2>
+          <p className="text-[13px] font-bold text-label">
+            Create a profile to start the campaign. Your stars and unlocked chapters are saved to it.
+          </p>
+        </div>
+        <ProfileForm submitLabel="Create profile" onSubmit={async (look) => {
+            await useProgress.getState().createProfile(look);
+          }} />
+      </section>
+      {hasProfiles && (
+        <Link href="/profiles" className="self-center text-sm font-extrabold text-screen-soft underline underline-offset-2">
+          Choose an existing profile
+        </Link>
+      )}
+    </PageShell>
+  );
+}
+
 /** Chapters of stages; each stage has three goals worth a star each. */
 export function CampaignScreen() {
   const router = useRouter();
-  const { campaign, hydrated } = useProgress();
+  const { campaign, hydrated, profile, book } = useProgress();
   const stars = totalStars(campaign);
   const next = currentStage(campaign);
 
   const play = async (stage: Stage) => {
-    await useSession.getState().startLocal(stageSetup(stage, randomSeed()));
+    if (!profile) return;
+    await useSession.getState().startLocal(stageSetup(stage, randomSeed(), { id: profile.id, name: profile.name }));
     navigate(router, '/play');
   };
+
+  if (hydrated && !profile) return <ProfileGate hasProfiles={book.profiles.length > 0} />;
 
   return (
     <PageShell
       title="Campaign"
       right={
-        <span className="rounded-full bg-white px-3 py-2 text-sm font-extrabold text-ink shadow-[0_3px_0_#EADFCB]">
-          <span className="text-amber">★</span> {stars}
-        </span>
+        profile && (
+          <Link
+            href="/profiles"
+            aria-label={`Playing as ${profile.name}, ${stars} stars. Change profile`}
+            className="flex max-w-[150px] items-center gap-1.5 rounded-full bg-white py-1 pr-3 pl-1 text-sm font-extrabold text-ink shadow-[0_3px_0_#EADFCB]"
+          >
+            <PlayerToken color={profile.color} shape={profile.shape} size={28} flat />
+            <span className="truncate">{profile.name}</span>
+            <span className="flex-none">
+              <span className="text-amber">★</span> {stars}
+            </span>
+          </Link>
+        )
       }
       footer={
-        hydrated && (
+        hydrated && profile && (
           <Chunky tone="pink" lift={7} glow onClick={() => void play(next)} className="flex h-[72px] w-full flex-col items-center justify-center gap-0.5 rounded-3xl">
             <span className="text-[26px] leading-none">Play stage {next.id}</span>
             <span className="font-sans text-xs font-extrabold">

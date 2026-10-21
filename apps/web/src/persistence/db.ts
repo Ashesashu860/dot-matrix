@@ -6,6 +6,8 @@ import type { DBSchema, IDBPDatabase } from 'idb';
 import type { LocalGameSetup, LoggedMove } from '@/controllers/local-controller';
 import { DEFAULT_CAMPAIGN } from '@/lib/campaign';
 import type { CampaignProgress } from '@/lib/campaign';
+import { EMPTY_BOOK } from '@/lib/profiles';
+import type { ProfileBook } from '@/lib/profiles';
 
 /**
  * IndexedDB persistence for everything local (requirements §10.1). CPU/local play
@@ -79,7 +81,7 @@ export interface SavedGame {
 
 export type HistoryEntry = GameResultSummary & { perspectivePlayerId: string | null };
 
-type KvKey = 'settings' | 'progress' | 'stats' | 'daily' | 'campaign' | 'lessons';
+type KvKey = 'settings' | 'progress' | 'stats' | 'daily' | 'campaign' | 'lessons' | 'profiles';
 
 interface DotsDB extends DBSchema {
   kv: {
@@ -144,8 +146,11 @@ export const loadProgress = () => getKv<Progress>('progress', DEFAULT_PROGRESS);
 export const saveProgress = (p: Progress) => setKv('progress', p);
 export const loadStats = () => getKv<PlayerStats>('stats', emptyStats());
 export const saveStats = (s: PlayerStats) => setKv('stats', s);
+/** Campaign progress from before profiles; adopted by the first profile. */
 export const loadCampaign = () => getKv<CampaignProgress>('campaign', DEFAULT_CAMPAIGN);
 export const saveCampaign = (c: CampaignProgress) => setKv('campaign', c);
+export const loadProfiles = () => getKv<ProfileBook>('profiles', EMPTY_BOOK);
+export const saveProfiles = (b: ProfileBook) => setKv('profiles', b);
 export interface LessonProgress {
   done: string[];
 }
