@@ -1,6 +1,6 @@
 'use client';
 
-import { getLevel } from '@dots/game-engine';
+import { getLevel, getShape } from '@dots/game-engine';
 import type { RoomDoc, RoomPlayerDoc } from '@dots/protocol';
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -31,7 +31,12 @@ export function Lobby({
   const ordered = [...players].sort((a, b) => a.joinedAt - b.joinedAt);
   const everyoneReady = ordered.every((p) => p.uid === room.hostUid || p.ready);
   const canStart = isHost && ordered.length >= 2 && everyoneReady;
-  const board = getLevel(room.level) ? `Level ${room.level} · ${room.rows}×${room.columns}` : `Custom · ${room.rows}×${room.columns}`;
+  const shape = getShape(room.shape);
+  const board = shape
+    ? `${shape.name} · ${room.rows}×${room.columns}`
+    : getLevel(room.level)
+      ? `Level ${room.level} · ${room.rows}×${room.columns}`
+      : `Custom · ${room.rows}×${room.columns}`;
   const hint =
     ordered.length < 2
       ? 'Waiting for friends to join'

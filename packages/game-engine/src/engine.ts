@@ -1,5 +1,6 @@
 import { cellId, cellsAdjacentToEdge, edgeId, parseEdgeId } from './ids';
 import { MAX_PLAYERS, MIN_PLAYERS, isValidBoardSize } from './levels';
+import { WALL_ID, getShape, shapeCells, shapeSize } from './shapes';
 import type {
   Cell,
   Edge,
@@ -29,6 +30,8 @@ export interface CreateGameOptions {
   level: number;
   rows: number;
   columns: number;
+  /** Shape ID from the catalog; rows/columns must match its size. */
+  shape?: string;
   players: PlayerInit[];
   config?: Partial<GameConfig>;
   /** Defaults to `playing`; online lobbies may create a `waiting` game. */
@@ -41,29 +44,33 @@ export interface Board {
   cells: Record<string, Cell>;
 }
 
-/** Generate every edge and cell for a `rows` x `columns` dot grid. */
-export function generateBoard(rows: number, columns: number): Board {
+/**
+ * Generate every edge and cell for a `rows` x `columns` dot grid, or for a
+ * catalog shape on that grid: holes have no cell (and lose edges no box uses),
+ * walls start claimed by nobody (`WALL_ID`) and gold boxes carry their value.
+ */
+export function generateBoard(rows: number, columns: number, shapeId?: string): Board {
   if (!isValidBoardSize(rows, columns)) {
     throw new RangeError(`Unsupported board size ${rows}x${columns}`);
   }
-  const edges: Record<string, Edge> = {};
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < columns - 1; c++) {
-      const id = edgeId('horizontal', r, c);
-      edges[id] = { id, orientation: 'horizontal', row: r, column: c };
+  const shape = getShape(shapeId);
+  if (shapeId !== undefined) {
+    if (!shape) throw new RangeError(`Unknown shape ${shapeId}`);
+    const size = shapeSize(shape);
+    if (size.rows !== rows || size.columns !== columns) {
+      throw new RangeError(`Shape ${shapeId} is ${size.rows}x${size.columns}, not ${rows}x${columns}`);
     }
   }
-  for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < columns; c++) {
-      const id = edgeId('vertical', r, c);
-      edges[id] = { id, orientation: 'vertical', row: r, column: c };
-    }
-  }
+  const values = shape ? shapeCells(shape) : null;
+
   const cells: Record<string, Cell> = {};
+  const used = new Set<string>();
   for (let r = 0; r < rows - 1; r++) {
     for (let c = 0; c < columns - 1; c++) {
       const id = cellId(r, c);
-      cells[id] = {
+      const value = values ? values.get(id) : 1;
+      if (value === undefined) continue;
+      const cell: Cell = {
         id,
         row: r,
         column: c,
@@ -72,9 +79,32 @@ export function generateBoard(rows: number, columns: number): Board {
         bottom: edgeId('horizontal', r + 1, c),
         left: edgeId('vertical', r, c),
       };
+      if (value !== 1) cell.value = value;
+      cells[id] = cell;
+      for (const e of [cell.top, cell.right, cell.bottom, cell.left]) used.add(e);
     }
   }
+
+  const edges: Record<string, Edge> = {};
+  const add = (orientation: Edge['orientation'], r: number, c: number) => {
+    const id = edgeId(orientation, r, c);
+    if (values && !used.has(id)) return;
+    edges[id] = { id, orientation, row: r, column: c };
+  };
+  for (let r = 0; r < rows; r++) for (let c = 0; c < columns - 1; c++) add('horizontal', r, c);
+  for (let r = 0; r < rows - 1; r++) for (let c = 0; c < columns; c++) add('vertical', r, c);
+
+  for (const wall of shape?.walls ?? []) {
+    const edge = edges[wall];
+    if (!edge) throw new RangeError(`Wall ${wall} is not on shape ${shapeId}`);
+    edges[wall] = { ...edge, claimedBy: WALL_ID };
+  }
   return { edges, cells };
+}
+
+/** Points on the board: one per box, more for gold. */
+export function totalPoints(state: Pick<GameState, 'cells'>): number {
+  return Object.values(state.cells).reduce((sum, c) => sum + (c.value ?? 1), 0);
 }
 
 /** Create a deterministic initial game state. */
@@ -86,13 +116,14 @@ export function createGame(options: CreateGameOptions): GameState {
   if (new Set(players.map((p) => p.id)).size !== players.length) {
     throw new Error('Player IDs must be unique');
   }
-  const { edges, cells } = generateBoard(options.rows, options.columns);
+  const { edges, cells } = generateBoard(options.rows, options.columns, options.shape);
   const state: GameState = {
     gameId: options.gameId,
     mode: options.mode,
     level: options.level,
     rows: options.rows,
     columns: options.columns,
+    ...(options.shape !== undefined && { shape: options.shape }),
     players: players.map((p) => ({ ...p, score: 0, active: true })),
     edges,
     cells,
@@ -145,7 +176,7 @@ export function findCompletedCells(state: GameState, id: string, edges = state.e
   });
 }
 
-/** Assign ownership of `cellIds` to `playerId` and add one point per cell. */
+/** Assign ownership of `cellIds` to `playerId` and add each cell's points. */
 export function claimCells(
   state: GameState,
   cellIds: readonly string[],
@@ -153,12 +184,16 @@ export function claimCells(
 ): Pick<GameState, 'cells' | 'players'> {
   if (cellIds.length === 0) return { cells: state.cells, players: state.players };
   const cells = { ...state.cells };
+  let points = 0;
   for (const id of cellIds) {
     const cell = cells[id];
-    if (cell) cells[id] = { ...cell, ownerId: playerId };
+    if (cell) {
+      cells[id] = { ...cell, ownerId: playerId };
+      points += cell.value ?? 1;
+    }
   }
   const players = state.players.map((p) =>
-    p.id === playerId ? { ...p, score: p.score + cellIds.length } : p,
+    p.id === playerId ? { ...p, score: p.score + points } : p,
   );
   return { cells, players };
 }
@@ -222,6 +257,7 @@ export function applyMove(
   const edges = { ...state.edges, [id]: { ...edge, claimedBy: playerId } };
   const completedCells = findCompletedCells(state, id, edges);
   const { cells, players } = claimCells(state, completedCells, playerId);
+  const scoreGained = completedCells.reduce((sum, id) => sum + (state.cells[id]?.value ?? 1), 0);
 
   let next: GameState = {
     ...state,
@@ -245,7 +281,7 @@ export function applyMove(
     ok: true,
     gameState: next,
     completedCells,
-    scoreGained: completedCells.length,
+    scoreGained,
     extraTurn,
     gameOver,
   };
@@ -284,7 +320,7 @@ export function replay(initial: GameState, moves: readonly MoveRecord[]): GameSt
   return state;
 }
 
-/** Number of cells a player owns (equals score, kept separate for result screens). */
+/** Number of cells a player owns (equals score unless the board has gold boxes). */
 export function countCells(state: GameState, playerId: string): number {
   return Object.values(state.cells).filter((c) => c.ownerId === playerId).length;
 }

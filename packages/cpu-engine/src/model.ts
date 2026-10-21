@@ -1,4 +1,4 @@
-import { cellId, edgeId } from '@dots/game-engine';
+import { generateBoard } from '@dots/game-engine';
 import type { GameState } from '@dots/game-engine';
 
 /**
@@ -12,10 +12,15 @@ export interface Topology {
   cellCount: number;
   edgeIds: string[];
   edgeIndex: Map<string, number>;
+  cellIds: string[];
+  /** Points per cell (gold boxes are worth more than 1). */
+  cellValues: Uint8Array;
   /** 4 edge indexes per cell: top, right, bottom, left. */
   cellEdges: Int16Array;
-  /** 2 cell indexes per edge, -1 when the edge is on the border. */
+  /** 2 cell indexes per edge, -1 on the border or beside a hole. */
   edgeCells: Int16Array;
+  /** Edges drawn before play (shape walls). */
+  walls: number[];
 }
 
 export interface Position {
@@ -28,58 +33,57 @@ export interface Position {
 
 const topologyCache = new Map<string, Topology>();
 
-export function getTopology(rows: number, columns: number): Topology {
-  const key = `${rows}x${columns}`;
+/** Board layout for a full grid or a catalog shape; edge and cell order follow the engine. */
+export function getTopology(rows: number, columns: number, shape?: string): Topology {
+  const key = `${rows}x${columns}${shape ? `:${shape}` : ''}`;
   const cached = topologyCache.get(key);
   if (cached) return cached;
 
-  const edgeIds: string[] = [];
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < columns - 1; c++) edgeIds.push(edgeId('horizontal', r, c));
-  }
-  for (let r = 0; r < rows - 1; r++) {
-    for (let c = 0; c < columns; c++) edgeIds.push(edgeId('vertical', r, c));
-  }
+  const board = generateBoard(rows, columns, shape);
+  const edgeIds = Object.keys(board.edges);
   const edgeIndex = new Map(edgeIds.map((id, i) => [id, i]));
-  const cellRows = rows - 1;
-  const cellColumns = columns - 1;
-  const cellCount = cellRows * cellColumns;
-  const cellEdges = new Int16Array(cellCount * 4);
+  const cells = Object.values(board.cells);
+  const cellEdges = new Int16Array(cells.length * 4);
   const edgeCells = new Int16Array(edgeIds.length * 2).fill(-1);
+  const cellValues = new Uint8Array(cells.length);
 
-  for (let r = 0; r < cellRows; r++) {
-    for (let c = 0; c < cellColumns; c++) {
-      const cell = r * cellColumns + c;
-      const sides = [
-        edgeIndex.get(edgeId('horizontal', r, c))!,
-        edgeIndex.get(edgeId('vertical', r, c + 1))!,
-        edgeIndex.get(edgeId('horizontal', r + 1, c))!,
-        edgeIndex.get(edgeId('vertical', r, c))!,
-      ];
-      sides.forEach((e, i) => {
-        cellEdges[cell * 4 + i] = e;
-        const slot = edgeCells[e * 2] === -1 ? 0 : 1;
-        edgeCells[e * 2 + slot] = cell;
-      });
-    }
-  }
+  cells.forEach((c, cell) => {
+    cellValues[cell] = c.value ?? 1;
+    [c.top, c.right, c.bottom, c.left].forEach((id, i) => {
+      const e = edgeIndex.get(id)!;
+      cellEdges[cell * 4 + i] = e;
+      const slot = edgeCells[e * 2] === -1 ? 0 : 1;
+      edgeCells[e * 2 + slot] = cell;
+    });
+  });
 
   const topo: Topology = {
     rows,
     columns,
     edgeCount: edgeIds.length,
-    cellCount,
+    cellCount: cells.length,
     edgeIds,
     edgeIndex,
+    cellIds: cells.map((c) => c.id),
+    cellValues,
     cellEdges,
     edgeCells,
+    walls: Object.values(board.edges).filter((e) => e.claimedBy !== undefined).map((e) => edgeIndex.get(e.id)!),
   };
   topologyCache.set(key, topo);
   return topo;
 }
 
+/** A fresh board: nothing drawn but the shape's walls. */
+export function emptyPosition(rows: number, columns: number, shape?: string): Position {
+  const topo = getTopology(rows, columns, shape);
+  const pos = { topo, taken: new Uint8Array(topo.edgeCount), sides: new Uint8Array(topo.cellCount) };
+  for (const e of topo.walls) play(pos, e);
+  return pos;
+}
+
 export function fromGameState(state: GameState): Position {
-  const topo = getTopology(state.rows, state.columns);
+  const topo = getTopology(state.rows, state.columns, state.shape);
   const taken = new Uint8Array(topo.edgeCount);
   const sides = new Uint8Array(topo.cellCount);
   for (let e = 0; e < topo.edgeCount; e++) {
@@ -89,19 +93,18 @@ export function fromGameState(state: GameState): Position {
 }
 
 export function cellIdOf(topo: Topology, cell: number): string {
-  const cellColumns = topo.columns - 1;
-  return cellId(Math.floor(cell / cellColumns), cell % cellColumns);
+  return topo.cellIds[cell]!;
 }
 
-/** Claim edge `e`; returns the number of cells it completed. */
+/** Claim edge `e`; returns the points of the cells it completed. */
 export function play(pos: Position, e: number): number {
   pos.taken[e] = 1;
-  let completed = 0;
+  let points = 0;
   for (let i = 0; i < 2; i++) {
     const cell = pos.topo.edgeCells[e * 2 + i]!;
-    if (cell >= 0 && ++pos.sides[cell]! === 4) completed++;
+    if (cell >= 0 && ++pos.sides[cell]! === 4) points += pos.topo.cellValues[cell]!;
   }
-  return completed;
+  return points;
 }
 
 export function undo(pos: Position, e: number): void {

@@ -1,6 +1,6 @@
 import { createRng } from '@dots/game-engine';
 import type { MoveRecord, Rng } from '@dots/game-engine';
-import { components, freeEdges, getTopology, greedyCaptureCount, play, safeMoves, undo } from './model';
+import { components, emptyPosition, freeEdges, greedyCaptureCount, play, safeMoves, undo } from './model';
 import type { Position } from './model';
 import { solveEndgame } from './search';
 
@@ -25,11 +25,14 @@ export interface Puzzle {
   kind: PuzzleKind;
   rows: number;
   columns: number;
+  /** Weekend puzzles use small shaped boards (holes, gold boxes). */
+  shape?: string;
   /** Player who makes `initialMoves[0]`; moves then alternate (none of them capture). */
   firstPlayerId: string;
   initialMoves: MoveRecord[];
-  /** Boxes the human must finish with: the score of perfect play by both sides. */
+  /** Points the human must finish with: the score of perfect play by both sides. */
   target: number;
+  /** Points on the board (boxes, with gold counted double). */
   totalBoxes: number;
 }
 
@@ -40,11 +43,6 @@ const SIZES: ReadonlyArray<readonly [number, number]> = [
   [5, 5],
 ];
 const MAX_ATTEMPTS = 60;
-
-function emptyPosition(rows: number, columns: number): Position {
-  const topo = getTopology(rows, columns);
-  return { topo, taken: new Uint8Array(topo.edgeCount), sides: new Uint8Array(topo.cellCount) };
-}
 
 /** Cells the opponent takes if we play `e`, greedily. */
 function giveaway(pos: Position, e: number): number {
@@ -62,9 +60,18 @@ function naiveMove(pos: Position): number {
   return free.reduce((best, e) => (giveaway(pos, e) < giveaway(pos, best) ? e : best), free[0]!);
 }
 
+/** Small shapes whose endgames stay within exact search. */
+const PUZZLE_SHAPES = ['mini', 'loop'] as const;
+/** First puzzle that may be shaped; earlier ones stay as they were published. */
+const SHAPED_FROM = 25;
+/** Puzzle 1 was a Thursday (2026-10-01). */
+const weekday = (no: number) => (no + 3) % 7;
+
 function attempt(no: number, rng: Rng): Puzzle | null {
-  const [rows, columns] = rng.pick(SIZES);
-  const pos = emptyPosition(rows, columns);
+  const shaped = no >= SHAPED_FROM && (weekday(no) === 0 || weekday(no) === 6);
+  const shape = shaped ? rng.pick(PUZZLE_SHAPES) : undefined;
+  const [rows, columns] = shape ? [5, 5] : rng.pick(SIZES);
+  const pos = emptyPosition(rows, columns, shape);
   const played: number[] = [];
   for (let safe = safeMoves(pos); safe.length; safe = safeMoves(pos)) {
     const e = rng.pick(safe);
@@ -89,8 +96,8 @@ function attempt(no: number, rng: Rng): Puzzle | null {
   // The human must be able to win, and the obvious move must not be good enough.
   if (!solved || solved.margin <= 0 || solved.bestMoves.includes(naiveMove(pos))) return null;
 
-  const totalBoxes = pos.topo.cellCount;
-  // Nobody has scored yet: every box is still on the board.
+  const totalBoxes = pos.topo.cellValues.reduce((sum, v) => sum + v, 0);
+  // Nobody has scored yet: every point is still on the board.
   const target = (totalBoxes + solved.margin) / 2;
   const humanMovesNext = played.length % 2 === 0;
   const firstPlayerId = humanMovesNext ? PUZZLE_HUMAN_ID : PUZZLE_CPU_ID;
@@ -99,7 +106,7 @@ function attempt(no: number, rng: Rng): Puzzle | null {
     edgeId: pos.topo.edgeIds[e]!,
     playerId: i % 2 === 0 ? firstPlayerId : secondPlayerId,
   }));
-  return { no, kind, rows, columns, firstPlayerId, initialMoves, target, totalBoxes };
+  return { no, kind, rows, columns, ...(shape && { shape }), firstPlayerId, initialMoves, target, totalBoxes };
 }
 
 /**

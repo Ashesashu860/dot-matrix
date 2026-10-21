@@ -2,7 +2,8 @@
  * Shared contract between the web client and Cloud Functions: callable request /
  * response schemas, Firestore document shapes, error codes and small helpers.
  */
-import { MAX_LEVEL, MAX_PLAYERS, MIN_DOTS, MIN_PLAYERS } from '@dots/game-engine';
+import { MAX_LEVEL, MAX_PLAYERS, MIN_DOTS, MIN_PLAYERS, SHAPE_IDS } from '@dots/game-engine';
+import type { ShapeId } from '@dots/game-engine';
 import type { GameState, MoveError, PlayerStats } from '@dots/game-engine';
 import { z } from 'zod';
 
@@ -117,6 +118,7 @@ const playerName = z
 export const ONLINE_MAX_DOTS = 12;
 
 export const boardSchema = z.union([
+  z.object({ shape: z.enum(SHAPE_IDS as [ShapeId, ...ShapeId[]]) }),
   z.object({ level: z.number().int().min(1).max(MAX_LEVEL) }),
   z.object({
     level: z.literal(0),
@@ -207,6 +209,8 @@ export interface RoomDoc {
   level: number;
   rows: number;
   columns: number;
+  /** Shaped board from the catalog. */
+  shape?: string;
   extraTurnOnCapture: boolean;
   /** Absent on rooms created before async play: those are live. */
   pace?: RoomPace;

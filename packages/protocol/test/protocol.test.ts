@@ -47,6 +47,15 @@ describe('request schemas', () => {
       createRoomRequest.parse({ name: 'Ada', board: { level: 0, rows: 13, columns: 4 } }),
     ).toThrow();
     expect(() => createRoomRequest.parse({ name: '   ', board: { level: 1 } })).toThrow();
+    expect(req.pace).toBe('live');
+  });
+
+  it('accepts catalog shapes and async pace only', () => {
+    const req = createRoomRequest.parse({ name: 'Ada', board: { shape: 'vault' }, pace: 'async' });
+    expect(req.board).toEqual({ shape: 'vault' });
+    expect(req.pace).toBe('async');
+    expect(() => createRoomRequest.parse({ name: 'Ada', board: { shape: 'castle' } })).toThrow();
+    expect(() => createRoomRequest.parse({ name: 'Ada', board: { level: 1 }, pace: 'slow' })).toThrow();
   });
 
   it('rejects malformed move submissions', () => {

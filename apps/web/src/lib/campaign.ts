@@ -1,6 +1,6 @@
 import type { Difficulty } from '@dots/cpu-engine';
-import { CUSTOM_LEVEL, cellCount } from '@dots/game-engine';
-import type { GameState, PlayerInit } from '@dots/game-engine';
+import { CUSTOM_LEVEL, SHAPES, cellCount, shapeCells, shapeSize } from '@dots/game-engine';
+import type { GameState, PlayerInit, ShapeId } from '@dots/game-engine';
 import { PLAYER_COLORS } from '@dots/protocol';
 import type { LocalGameSetup, LoggedMove } from '@/controllers/local-controller';
 
@@ -30,6 +30,8 @@ export interface Stage {
   chapter: number;
   rows: number;
   columns: number;
+  /** Shaped board from the catalog (rows/columns are its size). */
+  shape?: ShapeId;
   bots: Bot[];
   cpuFirst?: boolean;
   goals: [Goal, Goal, Goal];
@@ -49,6 +51,7 @@ export const CHAPTERS: readonly Chapter[] = [
   { number: 3, title: 'Chain Gang', blurb: 'Long chains decide games. Take them whole, give away the small ones.', starsToUnlock: 18 },
   { number: 4, title: 'Nova’s Control', blurb: 'Nova double-deals to keep control. Learn to do it back.', starsToUnlock: 30 },
   { number: 5, title: 'Crowded Board', blurb: 'Three and four players: every gift goes to someone.', starsToUnlock: 42 },
+  { number: 6, title: 'Odd Shapes', blurb: 'Holes, walls and gold boxes worth 2. Chains bend in new ways.', starsToUnlock: 54 },
 ];
 
 const win: Goal = { kind: 'win' };
@@ -114,17 +117,42 @@ const SPECS: StageSpec[][] = [
   ],
 ];
 
-export const STAGES: readonly Stage[] = SPECS.flatMap((specs, c) =>
-  specs.map(([rows, columns, bots, [g2, g3], cpuFirst], i) => ({
-    id: `${c + 1}-${i + 1}`,
-    chapter: c + 1,
-    rows,
-    columns,
+type ShapeStageSpec = [shape: ShapeId, bots: Bot[], goals: [Goal, Goal], cpuFirst?: boolean];
+
+/** Chapter 6: shaped boards. */
+const SHAPE_SPECS: ShapeStageSpec[] = [
+  ['cross', [pixel], [margin(2), combo(3)]],
+  ['mini', [nova], [margin(1), maxGift(2)]],
+  ['ring', [pixel], [combo(4), margin(3)]],
+  ['twins', [pixel], [margin(3), maxGift(3)], true],
+  ['diamond', [pixel], [combo(5), margin(4)]],
+  ['vault', [nova], [margin(2), combo(4)]],
+  ['ring', [nova], [margin(2), maxGift(3)]],
+  ['diamond', [pixel, nova], [margin(2), combo(4)]],
+];
+
+export const STAGES: readonly Stage[] = [
+  ...SPECS.flatMap((specs, c) =>
+    specs.map(([rows, columns, bots, [g2, g3], cpuFirst], i) => ({
+      id: `${c + 1}-${i + 1}`,
+      chapter: c + 1,
+      rows,
+      columns,
+      bots,
+      goals: [win, g2, g3] as [Goal, Goal, Goal],
+      ...(cpuFirst && { cpuFirst }),
+    })),
+  ),
+  ...SHAPE_SPECS.map(([shape, bots, [g2, g3], cpuFirst], i) => ({
+    id: `${SPECS.length + 1}-${i + 1}`,
+    chapter: SPECS.length + 1,
+    ...shapeSize(SHAPES[shape]),
+    shape,
     bots,
     goals: [win, g2, g3] as [Goal, Goal, Goal],
     ...(cpuFirst && { cpuFirst }),
   })),
-);
+];
 
 export const MAX_STARS = STAGES.length * 3;
 
@@ -195,6 +223,7 @@ export function stageSetup(stage: Stage, seed: number): LocalGameSetup {
       level: CUSTOM_LEVEL,
       rows: stage.rows,
       columns: stage.columns,
+      ...(stage.shape && { shape: stage.shape }),
       players: stagePlayers(stage),
       config: { extraTurnOnCapture: true },
     },
@@ -288,4 +317,5 @@ export function currentStage(progress: CampaignProgress): Stage {
   return open.find((s) => !progress.stars[s.id]) ?? open.find((s) => (progress.stars[s.id] ?? 0) < 3) ?? open[open.length - 1]!;
 }
 
-export const boxesIn = (stage: Stage) => cellCount(stage.rows, stage.columns);
+export const boxesIn = (stage: Stage) =>
+  stage.shape ? shapeCells(SHAPES[stage.shape]).size : cellCount(stage.rows, stage.columns);

@@ -1,6 +1,6 @@
 'use client';
 
-import { computeResultSummary, getLevel } from '@dots/game-engine';
+import { computeResultSummary, getLevel, totalPoints } from '@dots/game-engine';
 import type { GameState } from '@dots/game-engine';
 import { PLAYER_COLORS } from '@dots/protocol';
 import { Dialog as DialogPrimitive } from 'radix-ui';
@@ -83,7 +83,7 @@ export function ResultDialog({
 }) {
   if (state.status !== 'finished') return null;
   const summary = computeResultSummary(state);
-  const total = state.rows > 1 && state.columns > 1 ? (state.rows - 1) * (state.columns - 1) : 1;
+  const total = Math.max(1, totalPoints(state));
   const winnerIndex = state.players.findIndex((p) => summary.winnerIds.includes(p.id));
   const winner = state.players[winnerIndex];
   const iWon = perspectiveId !== null && !summary.isDraw && summary.winnerIds.includes(perspectiveId);
@@ -97,7 +97,7 @@ export function ResultDialog({
         ? `Level ${state.level + 1} unlocked!`
         : `Level ${state.level} cleared`
       : perspectiveId === null || iWon
-        ? `${topScore} of ${total} boxes captured`
+        ? `${topScore} of ${total} ${total === Object.keys(state.cells).length ? 'boxes captured' : 'points'}`
         : 'So close — rematch?');
 
   const color = summary.isDraw || !winner ? '#2B1B4A' : winner.color;

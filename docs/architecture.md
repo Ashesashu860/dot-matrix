@@ -27,7 +27,8 @@ The game screen, board and scoreboard only talk to the `GameController` interfac
 ## Packages
 
 - **`@dots/game-engine`** has no dependencies. The engine never reads the clock or `Math.random` (ESLint enforces this), so it is deterministic and can replay games. Edge IDs are `H-r-c` / `V-r-c` and cell IDs are `C-r-c`. `applyMove` returns `{ gameState, completedCells, scoreGained, extraTurn, gameOver }` or a typed error. On the final cell it finishes the game before any turn advance.
-- **`@dots/cpu-engine`** converts state to a compact typed-array model.
+- **Shaped boards** (`shapes.ts`): a fixed catalog drawn as cell maps. Holes have no cell, walls start claimed by `WALL_ID`, gold boxes carry `value: 2` (scores add values; `countCells` still counts boxes). Online rooms pick shapes by ID only.
+- **`@dots/cpu-engine`** converts state to a compact typed-array model built from the engine's own board (so shapes, walls and gold values carry over).
   - *Easy*: usually captures, prefers safe moves, makes seeded mistakes.
   - *Medium*: always captures, avoids third sides, gives away the smallest chain.
   - *Hard*: parity heuristic for safe moves, long-chain/double-dealing control, "hard-hearted" handouts, and an exact memoised endgame solver for 2-player positions with ≤16 free edges.

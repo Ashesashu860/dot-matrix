@@ -1,7 +1,7 @@
 'use client';
 
 import type { Difficulty } from '@dots/cpu-engine';
-import { CUSTOM_LEVEL, MAX_PLAYERS, cellCount } from '@dots/game-engine';
+import { CUSTOM_LEVEL, MAX_PLAYERS, cellCount, getShape, shapeCells } from '@dots/game-engine';
 import type { PlayerInit } from '@dots/game-engine';
 import { PLAYER_COLORS, PLAYER_NAME_MAX, sanitizePlayerName } from '@dots/protocol';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -73,6 +73,7 @@ export function SetupScreen() {
         level: board.level,
         rows: board.rows,
         columns: board.columns,
+        ...(board.shape && { shape: board.shape }),
         players,
         config: { extraTurnOnCapture: extraTurn },
       },
@@ -91,14 +92,15 @@ export function SetupScreen() {
   };
 
   const custom = board.level === CUSTOM_LEVEL;
-  const boxes = cellCount(board.rows, board.columns);
+  const shape = getShape(board.shape);
+  const boxes = shape ? shapeCells(shape).size : cellCount(board.rows, board.columns);
 
   return (
     <PageShell
       title={mode === 'cpu' ? 'Quick play' : 'Local game'}
       footer={
         <Chunky tone="pink" lift={7} glow onClick={start} className="flex h-[72px] w-full flex-col items-center justify-center gap-0.5 rounded-3xl">
-          <span className="text-[26px] leading-none">{custom ? 'Start custom game' : `Start level ${board.level}`}</span>
+          <span className="text-[26px] leading-none">{shape ? `Start ${shape.name}` : custom ? 'Start custom game' : `Start level ${board.level}`}</span>
           <span className="font-sans text-xs font-extrabold">
             {board.rows}×{board.columns} dots · {boxes} boxes
           </span>

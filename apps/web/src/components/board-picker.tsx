@@ -1,6 +1,7 @@
 'use client';
 
-import { CUSTOM_LEVEL, LEVELS, MIN_DOTS, cellCount } from '@dots/game-engine';
+import { CUSTOM_LEVEL, LEVELS, MIN_DOTS, SHAPES, cellCount, shapeCells, shapeSize } from '@dots/game-engine';
+import type { ShapeDefinition } from '@dots/game-engine';
 import { useEffect, useState } from 'react';
 import { Chunky } from '@/components/kit';
 import { useBoardLimits } from '@/lib/board-limits';
@@ -10,11 +11,13 @@ export interface BoardChoice {
   level: number;
   rows: number;
   columns: number;
+  /** Shaped board from the catalog (level is CUSTOM_LEVEL). */
+  shape?: string;
 }
 
 const tile = 'flex flex-col items-center justify-center gap-0.5 rounded-[18px] transition-all duration-150';
 
-/** Level tiles plus a custom-size option. */
+/** Level tiles, a custom-size option and shaped boards. */
 export function BoardPicker({
   value,
   onChange,
@@ -27,11 +30,15 @@ export function BoardPicker({
   /** Tighter cap than the screen allows (online rooms). */
   maxDots?: number;
 }) {
-  const custom = value.level === CUSTOM_LEVEL;
+  const custom = value.level === CUSTOM_LEVEL && !value.shape;
   const screenLimits = useBoardLimits();
   const limits = maxDots
     ? { rows: Math.min(maxDots, screenLimits.rows), columns: Math.min(maxDots, screenLimits.columns) }
     : screenLimits;
+  const shapes = Object.values(SHAPES).filter((sh: ShapeDefinition) => {
+    const size = shapeSize(sh);
+    return size.rows <= limits.rows && size.columns <= limits.columns;
+  });
   const fit = (v: BoardChoice) => ({ ...v, rows: Math.min(v.rows, limits.rows), columns: Math.min(v.columns, limits.columns) });
 
   // Keep a custom size within the limits when the screen size changes.
@@ -87,12 +94,63 @@ export function BoardPicker({
             <Stepper label="Columns" value={value.columns} max={limits.columns} onChange={(columns) => onChange({ ...value, columns })} />
           </div>
           <p className="text-center text-xs font-bold text-label">
-            {cellCount(value.rows, value.columns)} boxes · up to {limits.rows}×{limits.columns}{maxDots ? '' : ' on this screen'} · custom boards
-            don&apos;t unlock levels
+            {cellCount(value.rows, value.columns)} boxes · up to {limits.rows}×{limits.columns}
+            {maxDots ? '' : ' on this screen'}
           </p>
         </div>
       )}
+      {shapes.length > 0 && (
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Shaped boards">
+          {shapes.map((sh) => {
+            const selected = value.shape === sh.id;
+            const size = shapeSize(sh);
+            const gold = [...shapeCells(sh).values()].filter((v) => v > 1).length;
+            return (
+              <Chunky
+                key={sh.id}
+                role="radio"
+                aria-checked={selected}
+                aria-label={`${sh.name} board${gold ? `, ${gold} gold boxes` : ''}`}
+                tone={selected ? 'pink' : 'soft'}
+                lift={4}
+                onClick={() => onChange({ level: CUSTOM_LEVEL, ...size, shape: sh.id })}
+                className={cn(tile, 'h-[84px] gap-1')}
+              >
+                <ShapePreview shape={sh} />
+                <span className="font-sans text-[11px] font-extrabold">{sh.name}</span>
+              </Chunky>
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Tiny cell map of a shape: boxes, gold boxes and holes. */
+function ShapePreview({ shape }: { shape: ShapeDefinition }) {
+  const cell = 6;
+  const width = shape.art[0]!.length * cell;
+  const height = shape.art.length * cell;
+  return (
+    <svg aria-hidden="true" width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {shape.art.flatMap((line, r) =>
+        [...line].map((ch, c) =>
+          ch === '.' ? null : (
+            <rect
+              key={`${r}-${c}`}
+              x={c * cell + 0.5}
+              y={r * cell + 0.5}
+              width={cell - 1}
+              height={cell - 1}
+              rx={1.2}
+              fill={ch === '$' ? '#FFB21E' : 'currentColor'}
+              opacity={ch === '$' ? 1 : 0.55}
+            />
+          ),
+        ),
+      )}
+    </svg>
   );
 }
 

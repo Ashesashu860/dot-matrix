@@ -1,5 +1,6 @@
 'use client';
 
+import { WALL_ID, cellId } from '@dots/game-engine';
 import type { GameState } from '@dots/game-engine';
 import { Shrink } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -128,6 +129,15 @@ export const GameBoard = memo(function GameBoard({
   );
   const current = state.players[state.currentPlayerIndex];
   const edges = useMemo(() => Object.values(state.edges), [state.edges]);
+  // Shaped boards leave out dots that no line touches (around holes).
+  const dots = useMemo(() => {
+    const keys = new Set<string>();
+    for (const e of edges) {
+      keys.add(`${e.row}-${e.column}`);
+      keys.add(e.orientation === 'horizontal' ? `${e.row}-${e.column + 1}` : `${e.row + 1}-${e.column}`);
+    }
+    return [...keys].map((k) => k.split('-').map(Number) as [number, number]);
+  }, [edges]);
   const availableIds = useMemo(
     () => edges.filter((e) => e.claimedBy === undefined && e.id !== pendingEdgeId).map((e) => e.id),
     [edges, pendingEdgeId],
@@ -382,6 +392,19 @@ export const GameBoard = memo(function GameBoard({
           onPointerLeave={() => !pressing.current && setPreview(null)}
           onKeyDown={onKeyDown}
         >
+          {/* Holes in a shaped board: tinted so they read as off the board */}
+          {state.shape && (
+            <g fill="#F3EEF8" pointerEvents="none">
+              {Array.from({ length: state.rows - 1 }, (_, r) =>
+                Array.from({ length: state.columns - 1 }, (_, c) => {
+                  if (state.cells[cellId(r, c)]) return null;
+                  const { x, y } = dotPosition(r, c);
+                  return <rect key={`${r}-${c}`} x={x + inset} y={y + inset} width={boxSize} height={boxSize} rx={boxRadius} />;
+                }),
+              )}
+            </g>
+          )}
+
           {/* Available edges: faint guides */}
           <g stroke="#EEE6F6" strokeWidth={lineWidth * 0.6} strokeLinecap="round">
             {availableIds.map((id) => {
@@ -396,25 +419,29 @@ export const GameBoard = memo(function GameBoard({
               const { x: cx, y: cy } = dotPosition(cell.row, cell.column);
               const x = cx + inset;
               const y = cy + inset;
+              const gold = (cell.value ?? 1) > 1;
               if (!cell.ownerId) {
-                if (!interactive || !current || !showHints) return null;
                 const sides = [cell.top, cell.right, cell.bottom, cell.left].filter(
                   (id) => state.edges[id]?.claimedBy !== undefined,
                 ).length;
-                if (sides !== 3) return null;
+                const hint = interactive && current && showHints && sides === 3;
+                if (!hint && !gold) return null;
                 return (
-                  <rect
-                    key={cell.id}
-                    x={x}
-                    y={y}
-                    width={boxSize}
-                    height={boxSize}
-                    rx={boxRadius}
-                    fill={current.color}
-                    opacity={0.12}
-                    className="animate-[bh-pulse_1.1s_ease-in-out_infinite]"
-                    pointerEvents="none"
-                  />
+                  <g key={cell.id} pointerEvents="none">
+                    {gold && <GoldCoin cx={x + boxSize / 2} cy={y + boxSize / 2} r={boxSize * 0.22} value={cell.value!} />}
+                    {hint && (
+                      <rect
+                        x={x}
+                        y={y}
+                        width={boxSize}
+                        height={boxSize}
+                        rx={boxRadius}
+                        fill={current.color}
+                        opacity={0.12}
+                        className="animate-[bh-pulse_1.1s_ease-in-out_infinite]"
+                      />
+                    )}
+                  </g>
                 );
               }
               const index = playerIndex.get(cell.ownerId) ?? 0;
@@ -443,6 +470,7 @@ export const GameBoard = memo(function GameBoard({
                     r={boxSize * 0.17}
                     fill={inkOn(color)}
                   />
+                  {gold && <GoldCoin cx={x + boxSize * 0.8} cy={y + boxSize * 0.8} r={boxSize * 0.13} value={cell.value!} />}
                 </g>
               );
             })}
@@ -453,6 +481,11 @@ export const GameBoard = memo(function GameBoard({
             {edges.map((edge) => {
               if (edge.claimedBy === undefined) return null;
               const seg = edgeSegment(edge.id, size)!;
+              if (edge.claimedBy === WALL_ID) {
+                return (
+                  <line key={edge.id} x1={seg[0].x} y1={seg[0].y} x2={seg[1].x} y2={seg[1].y} stroke="#2B1B4A" strokeWidth={lineWidth} />
+                );
+              }
               const color = state.players[playerIndex.get(edge.claimedBy) ?? 0]?.color ?? '#2B1B4A';
               const isLast = lastEvent?.edgeId === edge.id;
               return (
@@ -530,22 +563,20 @@ export const GameBoard = memo(function GameBoard({
 
           {/* Dots (the preview's endpoints grow in the mover's colour) */}
           <g pointerEvents="none">
-            {Array.from({ length: state.rows }, (_, r) =>
-              Array.from({ length: state.columns }, (_, c) => {
-                const { x, y } = dotPosition(r, c);
-                const on = isEndpoint(x, y);
-                return (
-                  <circle
-                    key={`${r}-${c}`}
-                    cx={x}
-                    cy={y}
-                    r={on ? dotRadius * 1.4 : dotRadius}
-                    fill={on && current ? current.color : '#2B1B4A'}
-                    style={{ transition: 'r .15s, fill .15s' }}
-                  />
-                );
-              }),
-            )}
+            {dots.map(([r, c]) => {
+              const { x, y } = dotPosition(r, c);
+              const on = isEndpoint(x, y);
+              return (
+                <circle
+                  key={`${r}-${c}`}
+                  cx={x}
+                  cy={y}
+                  r={on ? dotRadius * 1.4 : dotRadius}
+                  fill={on && current ? current.color : '#2B1B4A'}
+                  style={{ transition: 'r .15s, fill .15s' }}
+                />
+              );
+            })}
           </g>
 
           {/* Focusable edge buttons (keyboard + screen readers) */}
@@ -614,6 +645,8 @@ interface Burst {
   y: number;
   color: string;
   seed: number;
+  /** Points the box was worth. */
+  points: number;
 }
 
 interface Flash {
@@ -659,7 +692,16 @@ function CaptureEffects({
       const cell = state.cells[cellId];
       if (!cell) return [];
       const { x, y } = dotPosition(cell.row, cell.column);
-      return [{ id: `${lastEvent.id}-${cellId}`, x: x + SPACING / 2, y: y + SPACING / 2, color, seed: Math.random() * 6 }];
+      return [
+        {
+          id: `${lastEvent.id}-${cellId}`,
+          x: x + SPACING / 2,
+          y: y + SPACING / 2,
+          color,
+          seed: Math.random() * 6,
+          points: cell.value ?? 1,
+        },
+      ];
     });
     const timers: Array<ReturnType<typeof setTimeout>> = [];
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -718,7 +760,7 @@ function CaptureEffects({
             className="absolute top-0 left-0 font-display text-[26px] leading-none font-extrabold whitespace-nowrap opacity-0 animate-[bh-float_.9s_ease-out_forwards]"
             style={{ color: b.color, textShadow: '0 2px 0 #fff, 0 -2px 0 #fff, 2px 0 0 #fff, -2px 0 0 #fff' }}
           >
-            +1
+            +{b.points}
           </div>
         </div>
       ))}
@@ -737,6 +779,27 @@ function CaptureEffects({
         </div>
       )}
     </div>
+  );
+}
+
+/** A gold box's marker: a coin showing its points. */
+function GoldCoin({ cx, cy, r, value }: { cx: number; cy: number; r: number; value: number }) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill="#FFB21E" stroke="#D98900" strokeWidth={r * 0.18} />
+      <text
+        x={cx}
+        y={cy}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={r * 1.15}
+        fontWeight={800}
+        fill="#2B1B4A"
+        className="font-display"
+      >
+        {value}
+      </text>
+    </g>
   );
 }
 

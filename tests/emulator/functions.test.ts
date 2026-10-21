@@ -70,6 +70,21 @@ describe('rooms', () => {
     expect(me.name).toBe('Ada');
   });
 
+  it('creates shaped rooms and starts games on that shape', async () => {
+    const host = await player();
+    const guest = await player();
+    const { roomId, code } = await host.call<CreateRoomResponse>('createRoom', { name: 'Host', board: { shape: 'vault' } });
+    const room = (await getDoc(doc(host.firestore, 'rooms', roomId))).data() as RoomDoc;
+    expect(room).toMatchObject({ shape: 'vault', rows: 6, columns: 6, level: 0 });
+    await guest.call('joinRoom', { code, name: 'Guest' });
+    await guest.call('setPlayerReady', { roomId, ready: true });
+    const { gameId } = await host.call<StartGameResponse>('startGame', { roomId });
+    const game = await readGame(host, gameId);
+    expect(game.state.shape).toBe('vault');
+    expect(game.state.edges['H-1-2']?.claimedBy).toBe('#wall');
+    expect(game.state.cells['C-1-1']?.value).toBe(2);
+  });
+
   it('validates inputs server-side', async () => {
     const host = await player();
     await expectCode(host.call('createRoom', { name: '', board: { level: 1 } }), 'INVALID_ARGUMENT');

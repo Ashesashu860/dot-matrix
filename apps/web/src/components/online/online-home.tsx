@@ -1,6 +1,7 @@
 'use client';
 
 import { CUSTOM_LEVEL, MAX_PLAYERS } from '@dots/game-engine';
+import type { ShapeId } from '@dots/game-engine';
 import { ONLINE_MAX_DOTS, PLAYER_NAME_MAX, ROOM_CODE_LENGTH, normaliseRoomCode, sanitizePlayerName } from '@dots/protocol';
 import type { RoomPace } from '@dots/protocol';
 import { Loader2, WifiOff } from 'lucide-react';
@@ -83,7 +84,11 @@ export function OnlineHome() {
         kind === 'create'
           ? await api.createRoom({
               name: cleanName,
-              board: board.level === CUSTOM_LEVEL ? { level: 0, rows: board.rows, columns: board.columns } : { level: board.level },
+              board: board.shape
+                ? { shape: board.shape as ShapeId }
+                : board.level === CUSTOM_LEVEL
+                  ? { level: 0, rows: board.rows, columns: board.columns }
+                  : { level: board.level },
               maxPlayers,
               extraTurnOnCapture: extraTurn,
               pace,

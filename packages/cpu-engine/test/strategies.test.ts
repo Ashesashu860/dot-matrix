@@ -1,9 +1,9 @@
-import { applyMove, createGame, createRng, getValidMoves } from '@dots/game-engine';
+import { SHAPES, SHAPE_IDS, applyMove, createGame, createRng, getValidMoves, shapeSize, totalPoints } from '@dots/game-engine';
 import type { GameState, PlayerInit } from '@dots/game-engine';
 import { describe, expect, it } from 'vitest';
 import { DIFFICULTIES, createCpuStrategy, fromGameState, solveEndgame } from '../src';
 import type { Difficulty } from '../src';
-import { freeEdges, play, undo } from '../src/model';
+import { emptyPosition, freeEdges, play, undo } from '../src/model';
 
 const COLORS = ['#2563eb', '#dc2626', '#16a34a', '#d97706'];
 
@@ -57,6 +57,18 @@ describe.each(DIFFICULTIES)('%s strategy', (difficulty) => {
         const final = playOut(game(rows, columns, n), Array(n).fill(difficulty), seed);
         expect(final.status).toBe('finished');
         expect(final.players.reduce((s, p) => s + p.score, 0)).toBe((rows - 1) * (columns - 1));
+      }
+    }
+  });
+
+  it('plays every shaped board (holes, walls, gold) to the end', () => {
+    for (const id of SHAPE_IDS) {
+      const { rows, columns } = shapeSize(SHAPES[id]);
+      for (const n of [2, 3]) {
+        const initial = createGame({ gameId: 't', mode: 'cpu', level: 0, rows, columns, shape: id, players: players(n) });
+        const final = playOut(initial, Array(n).fill(difficulty), 5);
+        expect(final.status).toBe('finished');
+        expect(final.players.reduce((s, p) => s + p.score, 0)).toBe(totalPoints(initial));
       }
     }
   });
@@ -195,5 +207,18 @@ describe('performance', () => {
     }
     // Runs in a Web Worker in the app, but should still be well under a second.
     expect(slowest).toBeLessThan(1000);
+  });
+});
+
+describe('shaped board model', () => {
+  it('starts with walls drawn and counts gold in captures', () => {
+    const pos = emptyPosition(6, 6, 'vault');
+    expect(pos.topo.walls).toHaveLength(4);
+    for (const e of pos.topo.walls) expect(pos.taken[e]).toBe(1);
+    const gold = pos.topo.cellIds.indexOf('C-1-1');
+    expect(pos.topo.cellValues[gold]).toBe(2);
+    const sides = Array.from({ length: 4 }, (_, i) => pos.topo.cellEdges[gold * 4 + i]!);
+    const gained = sides.map((e) => play(pos, e));
+    expect(gained.at(-1)).toBe(2);
   });
 });

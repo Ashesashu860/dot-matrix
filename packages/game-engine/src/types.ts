@@ -39,6 +39,8 @@ export interface Cell {
   bottom: string;
   left: string;
   ownerId?: string;
+  /** Points for capturing it; absent means 1 (gold boxes are worth 2). */
+  value?: number;
 }
 
 export type GameMode = 'cpu' | 'local' | 'online';
@@ -63,6 +65,8 @@ export interface GameState {
   rows: number;
   /** Number of dot columns. */
   columns: number;
+  /** Shaped board (holes, walls, gold boxes) from the shape catalog; absent for a full grid. */
+  shape?: string;
   players: Player[];
   edges: Record<string, Edge>;
   cells: Record<string, Cell>;

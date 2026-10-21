@@ -158,9 +158,12 @@ export function DailyScreen() {
         <>
           <Section title="Goal">
             <p className="font-display text-[26px] leading-tight font-extrabold text-ink">
-              Finish with {puzzle.target} of {puzzle.totalBoxes} boxes
+              Finish with {puzzle.target} of {puzzle.totalBoxes} {puzzle.shape ? 'points' : 'boxes'}
             </p>
             <p className="text-sm font-bold text-label">{KIND_COPY[puzzle.kind]}</p>
+            {puzzle.shape && (
+              <p className="text-sm font-bold text-label">Weekend board: gold boxes are worth 2 points.</p>
+            )}
             <p className="text-sm font-bold text-label">
               {PUZZLE_BOT} plays perfectly from here, so you must too. Draw a line on a box&apos;s 3rd side and you hand it over.
             </p>
@@ -231,7 +234,7 @@ function DailyGame({
       hintEdgeId={hintEdgeId}
       goal={
         <p className="self-center rounded-full bg-amber px-3 py-1 text-xs font-extrabold text-ink">
-          Goal: {humanScore(state)} / {puzzle.target} boxes
+          Goal: {humanScore(state)} / {puzzle.target} {puzzle.shape ? 'points' : 'boxes'}
         </p>
       }
       actions={
@@ -241,8 +244,8 @@ function DailyGame({
       result={{
         headline: solved ? 'Solved!' : 'Not quite',
         sub: solved
-          ? `${humanScore(state)} boxes: goal reached`
-          : `${humanScore(state)} of ${puzzle.target} boxes needed`,
+          ? `${humanScore(state)} ${puzzle.shape ? 'points' : 'boxes'}: goal reached`
+          : `${humanScore(state)} of ${puzzle.target} ${puzzle.shape ? 'points' : 'boxes'} needed`,
         success: solved,
         rematchLabel: `Try again (${triesLeft} left)`,
         extra: (solved || triesLeft <= 0) && (

@@ -11,6 +11,7 @@ export const PUZZLE_BOT = 'Nova';
 export interface PuzzlePosition {
   rows: number;
   columns: number;
+  shape?: string;
   firstPlayerId: string;
   initialMoves: MoveRecord[];
 }
@@ -22,6 +23,7 @@ export function puzzleSetup(position: PuzzlePosition, seed: number): LocalGameSe
       level: CUSTOM_LEVEL,
       rows: position.rows,
       columns: position.columns,
+      ...(position.shape && { shape: position.shape }),
       players: [
         { id: PUZZLE_HUMAN_ID, name: 'You', type: 'human', color: PLAYER_COLORS[0] },
         { id: PUZZLE_CPU_ID, name: PUZZLE_BOT, type: 'cpu', color: PLAYER_COLORS[1] },

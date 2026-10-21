@@ -1,6 +1,6 @@
 'use client';
 
-import { cellCount, getLevel } from '@dots/game-engine';
+import { getLevel, getShape, totalPoints } from '@dots/game-engine';
 import { ERROR_MESSAGES } from '@dots/protocol';
 import type { ProtocolErrorCode } from '@dots/protocol';
 import { Loader2, WifiOff } from 'lucide-react';
@@ -146,8 +146,10 @@ export function GameScreen({
 
   const isLevel = !!getLevel(state.level);
   const modeLabel = state.mode === 'cpu' ? `${difficulty ?? ''} CPU`.trim() : state.mode === 'local' ? 'Local' : 'Online';
-  const total = cellCount(state.rows, state.columns);
-  const claimed = state.players.reduce((sum, p) => sum + p.score, 0);
+  // Bar widths are points (gold boxes count double); the label counts boxes.
+  const total = totalPoints(state);
+  const cells = Object.values(state.cells);
+  const claimed = cells.filter((c) => c.ownerId !== undefined).length;
   const { width, height } = viewBoxSize({ rows: state.rows, columns: state.columns });
   // Large custom boards break out of the phone-width column (up to the viewport
   // width) and can be taller than the screen, so the page scrolls.
@@ -165,7 +167,7 @@ export function GameScreen({
         </RoundButton>
         <div className="flex min-w-0 flex-1 flex-col items-center text-center">
           <h1 className="font-display text-[26px] leading-none font-extrabold text-screen">
-            {title ?? (isLevel ? `Level ${state.level}` : 'Custom board')}
+            {title ?? (isLevel ? `Level ${state.level}` : (getShape(state.shape)?.name ?? 'Custom board'))}
           </h1>
           <p className="text-xs font-extrabold whitespace-nowrap text-screen-soft">
             {state.rows}×{state.columns} · {modeLabel}
@@ -226,7 +228,7 @@ export function GameScreen({
           role="progressbar"
           aria-label="Boxes claimed"
           aria-valuemin={0}
-          aria-valuemax={total}
+          aria-valuemax={cells.length}
           aria-valuenow={claimed}
         >
           {state.players.map((p) => (
@@ -238,7 +240,7 @@ export function GameScreen({
           ))}
         </div>
         <p className="text-center text-xs font-extrabold text-screen-soft">
-          {claimed} / {total} boxes claimed
+          {claimed} / {cells.length} boxes claimed
         </p>
         {goal}
       </div>

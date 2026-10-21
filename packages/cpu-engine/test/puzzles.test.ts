@@ -18,6 +18,7 @@ function startPosition(puzzle: Puzzle) {
     level: 0,
     rows: puzzle.rows,
     columns: puzzle.columns,
+    ...(puzzle.shape && { shape: puzzle.shape }),
     players: [
       { id: PUZZLE_HUMAN_ID, name: 'You', type: 'human', color: '#000' },
       { id: PUZZLE_CPU_ID, name: 'Nova', type: 'cpu', color: '#111' },
@@ -28,7 +29,8 @@ function startPosition(puzzle: Puzzle) {
 }
 
 describe('daily puzzles', () => {
-  const puzzles = Array.from({ length: 12 }, (_, i) => generateDailyPuzzle(i + 1));
+  // 1–12 are plain boards; 25 and 31–32 are weekend shaped boards.
+  const puzzles = [...Array.from({ length: 12 }, (_, i) => i + 1), 25, 31, 32].map(generateDailyPuzzle);
 
   it('is deterministic', () => {
     expect(generateDailyPuzzle(3)).toEqual(puzzles[2]);
@@ -54,6 +56,12 @@ describe('daily puzzles', () => {
       expect((puzzle.totalBoxes + solved!.margin) / 2).toBe(puzzle.target);
       expect(puzzle.target * 2).toBeGreaterThan(puzzle.totalBoxes);
     }
+  });
+
+  it('shapes weekend puzzles from #25 on, and leaves earlier ones alone', () => {
+    expect(generateDailyPuzzle(24).shape).toBeUndefined(); // a Saturday before shapes
+    expect(generateDailyPuzzle(25).shape).toBeDefined(); // Sunday
+    expect(generateDailyPuzzle(26).shape).toBeUndefined(); // Monday
   });
 
   it('numbers days in local time from the epoch', () => {

@@ -1,4 +1,4 @@
-import { createGame, getLevel } from '@dots/game-engine';
+import { CUSTOM_LEVEL, SHAPES, createGame, getLevel, shapeSize } from '@dots/game-engine';
 import {
   PLAYER_COLORS,
   ROOM_CREATE_LIMIT,
@@ -36,7 +36,12 @@ async function setRtdbMembership(roomId: string, uid: string, member: boolean) {
 }
 
 export const createRoom = callable(createRoomRequest, async ({ uid, data }): Promise<CreateRoomResponse> => {
-  const board = 'rows' in data.board ? data.board : getLevel(data.board.level);
+  const board =
+    'shape' in data.board
+      ? { level: CUSTOM_LEVEL, ...shapeSize(SHAPES[data.board.shape]), shape: data.board.shape }
+      : 'rows' in data.board
+        ? data.board
+        : getLevel(data.board.level);
   if (!board) throw new GameError('INVALID_ARGUMENT');
   const roomDoc = db.collection('rooms').doc();
   const candidates = Array.from({ length: 5 }, () => generateRoomCode(secureRandom));
@@ -65,6 +70,7 @@ export const createRoom = callable(createRoomRequest, async ({ uid, data }): Pro
       level: board.level,
       rows: board.rows,
       columns: board.columns,
+      ...('shape' in board && { shape: board.shape }),
       extraTurnOnCapture: data.extraTurnOnCapture,
       pace: data.pace,
       playerUids: [uid],
@@ -166,6 +172,7 @@ export const startGame = callable(roomRequest, async ({ uid, data }): Promise<St
       level: room.level,
       rows: room.rows,
       columns: room.columns,
+      ...(room.shape && { shape: room.shape }),
       players: players.map((p) => ({ id: p.uid, name: p.name, type: 'human' as const, color: p.color })),
       config: { extraTurnOnCapture: room.extraTurnOnCapture },
       startedAt: t,
