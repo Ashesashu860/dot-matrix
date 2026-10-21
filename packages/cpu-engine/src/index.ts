@@ -11,3 +11,5 @@ export {
   puzzleNumber,
 } from './puzzles';
 export type { Puzzle, PuzzleKind } from './puzzles';
+export { findTurningPoint } from './analysis';
+export type { AnalysisOptions, TurningPoint } from './analysis';

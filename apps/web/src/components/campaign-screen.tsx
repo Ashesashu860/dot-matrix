@@ -1,6 +1,7 @@
 'use client';
 
 import { Lock } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Chunky } from '@/components/kit';
 import { PageShell } from '@/components/page-shell';
@@ -91,6 +92,11 @@ export function CampaignScreen() {
                 )}
               </span>
             </div>
+            {chapter.number === 3 && (
+              <Link href="/learn" className="self-start text-sm font-extrabold text-[#0A73CC] underline underline-offset-2">
+                New to chains? Try the 5 lessons first
+              </Link>
+            )}
             <div className="grid grid-cols-4 gap-2" role="list">
               {stages.map((stage) => {
                 const unlocked = stageUnlocked(campaign, stage);

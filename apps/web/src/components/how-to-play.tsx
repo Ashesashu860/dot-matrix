@@ -92,6 +92,18 @@ export function HowToPlay() {
       <p className="px-2.5 py-1 text-center text-[13px] leading-[1.4] font-extrabold text-screen-soft">
         Tip: avoid drawing the 3rd side of a box — you&apos;ll hand it to your opponent.
       </p>
+      <section className="card-3d flex flex-col gap-2 p-4" aria-labelledby="chains-heading">
+        <h2 id="chains-heading" className="font-display text-[22px] leading-tight font-extrabold text-ink">
+          Chains &amp; control
+        </h2>
+        <p className="text-sm font-bold text-label">
+          Late in the game every move opens a chain of boxes. Winners give away the short chains, take the long ones, and
+          sometimes hand back two boxes to keep control.
+        </p>
+        <Chunky asChild tone="pink" lift={5} className="flex h-12 items-center justify-center rounded-[18px] text-lg">
+          <Link href="/learn">Learn chains in 5 lessons</Link>
+        </Chunky>
+      </section>
     </PageShell>
   );
 }

@@ -1,54 +1,28 @@
 'use client';
 
-import { PUZZLE_CPU_ID, PUZZLE_HUMAN_ID, PUZZLE_SEARCH, puzzleNumber } from '@dots/cpu-engine';
+import { PUZZLE_HUMAN_ID, PUZZLE_SEARCH, puzzleNumber } from '@dots/cpu-engine';
 import type { Puzzle } from '@dots/cpu-engine';
-import { CUSTOM_LEVEL } from '@dots/game-engine';
-import type { GameState } from '@dots/game-engine';
-import { PLAYER_COLORS } from '@dots/protocol';
-import { Lightbulb, Loader2, Share2 } from 'lucide-react';
+import { Loader2, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { GameScreen } from '@/components/game/game-screen';
+import { HintButton, useHint } from '@/components/game/use-hint';
 import { Chunky } from '@/components/kit';
 import { PageShell, Section } from '@/components/page-shell';
 import { CpuController } from '@/controllers/cpu-controller';
 import { newLocalGame } from '@/controllers/local-controller';
-import type { LocalGameSetup } from '@/controllers/local-controller';
 import { DAILY_ATTEMPTS, DAILY_HINTS, dailyStreak, isDone, shareText, untilNextPuzzle } from '@/lib/daily';
+import { PUZZLE_BOT, humanScore, puzzleSetup } from '@/lib/puzzle-setup';
 import { loadDaily, saveDaily } from '@/persistence/db';
 import type { DailyProgress, DailyResult } from '@/persistence/db';
 import { sharedRunner } from '@/workers/cpu-runner';
 
-const BOT_NAME = 'Nova';
 const NO_RESULT: DailyResult = { attempts: 0, solved: false, hints: 0 };
 
 const KIND_COPY = {
   open: 'No safe lines are left: every move gives boxes away. Choose the right sacrifice.',
-  respond: `${BOT_NAME} just opened a chain. Take it all, or hand two back to keep control?`,
+  respond: `${PUZZLE_BOT} just opened a chain. Take it all, or hand two back to keep control?`,
 } as const;
-
-function puzzleSetup(puzzle: Puzzle): LocalGameSetup {
-  return {
-    create: {
-      mode: 'cpu',
-      level: CUSTOM_LEVEL,
-      rows: puzzle.rows,
-      columns: puzzle.columns,
-      players: [
-        { id: PUZZLE_HUMAN_ID, name: 'You', type: 'human', color: PLAYER_COLORS[0] },
-        { id: PUZZLE_CPU_ID, name: BOT_NAME, type: 'cpu', color: PLAYER_COLORS[1] },
-      ],
-      config: { extraTurnOnCapture: true },
-    },
-    difficulty: 'hard',
-    seed: puzzle.no,
-    initialMoves: puzzle.initialMoves,
-    firstPlayerId: puzzle.firstPlayerId,
-    cpuOptions: PUZZLE_SEARCH,
-  };
-}
-
-const humanScore = (state: GameState) => state.players.find((p) => p.id === PUZZLE_HUMAN_ID)?.score ?? 0;
 
 async function share(text: string) {
   try {
@@ -115,7 +89,7 @@ export function DailyScreen() {
 
   const start = () => {
     if (!puzzle || isDone(result)) return;
-    const setup = puzzleSetup(puzzle);
+    const setup = puzzleSetup(puzzle, puzzle.no);
     const state = newLocalGame(setup, crypto.randomUUID(), Date.now());
     const c = new CpuController(state, setup, sharedRunner(), {
       onFinished: (s) => {
@@ -188,7 +162,7 @@ export function DailyScreen() {
             </p>
             <p className="text-sm font-bold text-label">{KIND_COPY[puzzle.kind]}</p>
             <p className="text-sm font-bold text-label">
-              {BOT_NAME} plays perfectly from here, so you must too. Draw a line on a box&apos;s 3rd side and you hand it over.
+              {PUZZLE_BOT} plays perfectly from here, so you must too. Draw a line on a box&apos;s 3rd side and you hand it over.
             </p>
           </Section>
 
@@ -240,24 +214,11 @@ function DailyGame({
 }) {
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
   const { state } = view;
-  const [hint, setHint] = useState<{ edgeId: string; move: number } | null>(null);
-  const myTurn = state.status === 'playing' && state.players[state.currentPlayerIndex]?.id === PUZZLE_HUMAN_ID;
+  const { myTurn, hintEdgeId, ask } = useHint(state, PUZZLE_HUMAN_ID, PUZZLE_SEARCH);
   const hintsLeft = DAILY_HINTS - result.hints;
   const finished = state.status === 'finished';
   const solved = finished && humanScore(state) >= puzzle.target;
   const triesLeft = DAILY_ATTEMPTS - result.attempts;
-
-  const askHint = async () => {
-    if (!myTurn || hintsLeft <= 0) return;
-    const move = state.totalMoves;
-    onUseHint();
-    try {
-      const edgeId = await sharedRunner().choose(state, 'hard', puzzle.no, PUZZLE_SEARCH);
-      setHint({ edgeId, move });
-    } catch {
-      toast.error('No hint available');
-    }
-  };
 
   return (
     <GameScreen
@@ -267,7 +228,7 @@ function DailyGame({
       title={`Daily #${puzzle.no}`}
       onExit={onExit}
       onRematch={!solved && triesLeft > 0 ? onRetry : undefined}
-      hintEdgeId={hint && hint.move === state.totalMoves ? hint.edgeId : null}
+      hintEdgeId={hintEdgeId}
       goal={
         <p className="self-center rounded-full bg-amber px-3 py-1 text-xs font-extrabold text-ink">
           Goal: {humanScore(state)} / {puzzle.target} boxes
@@ -275,12 +236,7 @@ function DailyGame({
       }
       actions={
         hintsLeft > 0 &&
-        myTurn && (
-          <Chunky tone="soft" onClick={() => void askHint()} className="flex h-12 items-center justify-center gap-2 rounded-[18px] text-lg">
-            <Lightbulb className="size-5" aria-hidden="true" />
-            Hint ({hintsLeft} left)
-          </Chunky>
-        )
+        myTurn && <HintButton label={`Hint (${hintsLeft} left)`} onClick={() => void ask().then((ok) => ok && onUseHint())} />
       }
       result={{
         headline: solved ? 'Solved!' : 'Not quite',

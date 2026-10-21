@@ -20,3 +20,19 @@ export async function startLocalGame(page: Page, players = 2, level = 1) {
   await page.getByRole('button', { name: /Start level/ }).click();
   await expect(page.getByRole('group', { name: /Game board/ })).toBeVisible();
 }
+
+/** Moves in the game saved to IndexedDB for "Resume" (-1 when none). */
+export function savedMoveCount(page: Page) {
+  return page.evaluate(
+    () =>
+      new Promise<number>((resolve) => {
+        const open = indexedDB.open('dots-matrix');
+        open.onerror = () => resolve(-1);
+        open.onsuccess = () => {
+          const get = open.result.transaction('savedGame').objectStore('savedGame').get('current');
+          get.onsuccess = () => resolve(get.result?.state.totalMoves ?? -1);
+          get.onerror = () => resolve(-1);
+        };
+      }),
+  );
+}

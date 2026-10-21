@@ -79,7 +79,7 @@ export interface SavedGame {
 
 export type HistoryEntry = GameResultSummary & { perspectivePlayerId: string | null };
 
-type KvKey = 'settings' | 'progress' | 'stats' | 'daily' | 'campaign';
+type KvKey = 'settings' | 'progress' | 'stats' | 'daily' | 'campaign' | 'lessons';
 
 interface DotsDB extends DBSchema {
   kv: {
@@ -146,6 +146,11 @@ export const loadStats = () => getKv<PlayerStats>('stats', emptyStats());
 export const saveStats = (s: PlayerStats) => setKv('stats', s);
 export const loadCampaign = () => getKv<CampaignProgress>('campaign', DEFAULT_CAMPAIGN);
 export const saveCampaign = (c: CampaignProgress) => setKv('campaign', c);
+export interface LessonProgress {
+  done: string[];
+}
+export const loadLessons = () => getKv<LessonProgress>('lessons', { done: [] });
+export const saveLessons = (l: LessonProgress) => setKv('lessons', l);
 export const loadDaily = () => getKv<DailyProgress>('daily', DEFAULT_DAILY);
 export const saveDaily = (d: DailyProgress) => setKv('daily', d);
 

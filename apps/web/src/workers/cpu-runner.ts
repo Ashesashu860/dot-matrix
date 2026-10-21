@@ -1,6 +1,6 @@
-import { createCpuStrategy, generateDailyPuzzle } from '@dots/cpu-engine';
-import type { Difficulty, Puzzle } from '@dots/cpu-engine';
-import type { GameState } from '@dots/game-engine';
+import { createCpuStrategy, findTurningPoint, generateDailyPuzzle } from '@dots/cpu-engine';
+import type { Difficulty, Puzzle, TurningPoint } from '@dots/cpu-engine';
+import type { GameState, MoveRecord } from '@dots/game-engine';
 import type { CpuRequest, CpuResponse, BotOptions } from './cpu-protocol';
 
 /** Computes CPU moves; implementations may run off the main thread. */
@@ -8,6 +8,8 @@ export interface CpuRunner {
   choose(state: GameState, difficulty: Difficulty, seed: number, options?: BotOptions): Promise<string>;
   /** Generate the daily puzzle `no` (exact search, so kept off the main thread). */
   puzzle(no: number): Promise<Puzzle>;
+  /** `playerId`'s costliest endgame move (exact search). */
+  analyze(initial: GameState, moves: MoveRecord[], playerId: string): Promise<TurningPoint | null>;
   dispose(): void;
 }
 
@@ -19,6 +21,9 @@ export function createInlineRunner(): CpuRunner {
     },
     async puzzle(no) {
       return generateDailyPuzzle(no);
+    },
+    async analyze(initial, moves, playerId) {
+      return findTurningPoint(initial, moves, playerId);
     },
     dispose() {},
   };
@@ -64,6 +69,11 @@ export function createWorkerRunner(): CpuRunner {
       const response = await send({ kind: 'puzzle', requestId: ++nextId, no });
       if (!('puzzle' in response)) throw new Error('Unexpected CPU response');
       return response.puzzle;
+    },
+    async analyze(initial, moves, playerId) {
+      const response = await send({ kind: 'analyze', requestId: ++nextId, initial, moves, playerId });
+      if (!('turningPoint' in response)) throw new Error('Unexpected CPU response');
+      return response.turningPoint;
     },
     dispose() {
       worker.terminate();

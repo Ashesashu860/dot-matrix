@@ -1,4 +1,4 @@
-import { createCpuStrategy, generateDailyPuzzle } from '@dots/cpu-engine';
+import { createCpuStrategy, findTurningPoint, generateDailyPuzzle } from '@dots/cpu-engine';
 import type { CpuRequest, CpuResponse } from './cpu-protocol';
 
 // Typed narrowly so this file compiles against the DOM lib used by the app.
@@ -14,6 +14,9 @@ scope.onmessage = (event) => {
   try {
     if (request.kind === 'puzzle') {
       response = { requestId, ok: true, puzzle: generateDailyPuzzle(request.no) };
+    } else if (request.kind === 'analyze') {
+      const turningPoint = findTurningPoint(request.initial, request.moves, request.playerId);
+      response = { requestId, ok: true, turningPoint };
     } else {
       const { state, difficulty, seed, options } = request;
       const edge = createCpuStrategy(difficulty, { ...options, seed }).chooseMove(state);

@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { claimedCount, startLocalGame, tapEdge } from './helpers';
+import { claimedCount, savedMoveCount, startLocalGame, tapEdge } from './helpers';
 
 test('home offers every mode without an account', async ({ page }) => {
   await page.goto('/');
@@ -47,6 +47,8 @@ test('an interrupted local game resumes after reload', async ({ page }) => {
   await tapEdge(page, 'H-0-0');
   await tapEdge(page, 'V-1-1');
   await expect(page.locator('[data-edge]')).toHaveCount(38);
+  // Saving to IndexedDB is async: a reload within milliseconds of a move can beat it.
+  await expect.poll(() => savedMoveCount(page)).toBe(2);
   await page.reload();
   await expect(page.locator('[data-edge]')).toHaveCount(38);
   await page.goto('/');

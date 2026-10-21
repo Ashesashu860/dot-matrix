@@ -20,3 +20,25 @@ test('the campaign opens on stage 1-1 and plays it with its goals shown', async 
   await page.goto('/');
   await expect(page.getByRole('button', { name: /Resume game.*Stage 1-1/ })).toBeVisible();
 });
+
+test('a finished stage shows its goals and an endgame review', async ({ page }) => {
+  await page.goto('/campaign');
+  await page.getByRole('button', { name: /Play stage 1-1/ }).click();
+  await expect(page.locator('[data-edge]')).toHaveCount(24);
+  const dialog = page.getByRole('dialog');
+  for (let i = 0; i < 60 && !(await dialog.isVisible()); i++) {
+    if ((await page.locator('[data-edge]').count()) > 0) {
+      await page.locator('[data-edge]').first().focus().catch(() => {});
+      await page.keyboard.press('Enter');
+    }
+    await page.waitForTimeout(200);
+  }
+  await expect(dialog.getByRole('list', { name: 'Goals' })).toBeVisible({ timeout: 15000 });
+  await expect(dialog.getByText(/Turning point|Endgame review/)).toBeVisible({ timeout: 15000 });
+  const showMe = dialog.getByRole('button', { name: 'Show me' });
+  if (await showMe.isVisible()) {
+    await showMe.click();
+    await expect(dialog.locator('[data-hint]')).toHaveCount(1);
+  }
+  await page.screenshot({ path: 'test-results/campaign-result.png', fullPage: true });
+});
