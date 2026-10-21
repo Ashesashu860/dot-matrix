@@ -12,9 +12,10 @@ import type {
   SubmitMoveResponse,
 } from '@dots/protocol';
 import { ref, set } from 'firebase/database';
-import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import { initializeTestEnvironment } from '@firebase/rules-unit-testing';
+import { collection, doc, getDoc, getDocs, orderBy, query, updateDoc } from 'firebase/firestore';
 import { afterAll, describe, expect, it } from 'vitest';
-import { expectCode, newPlayer, waitFor } from './client';
+import { PROJECT_ID, expectCode, newPlayer, waitFor } from './client';
 import type { TestPlayer } from './client';
 
 const players: TestPlayer[] = [];
@@ -32,10 +33,10 @@ async function readGame(p: TestPlayer, gameId: string) {
 }
 
 /** Host + guests in a started game on the given level. */
-async function startedGame(guestCount = 1, level = 1) {
+async function startedGame(guestCount = 1, level = 1, pace: 'live' | 'async' = 'live') {
   const host = await player();
   const guests = await Promise.all(Array.from({ length: guestCount }, player));
-  const { roomId, code } = await host.call<CreateRoomResponse>('createRoom', { name: 'Host', board: { level } });
+  const { roomId, code } = await host.call<CreateRoomResponse>('createRoom', { name: 'Host', board: { level }, pace });
   for (const [i, g] of guests.entries()) {
     await g.call<JoinRoomResponse>('joinRoom', { code, name: `Guest ${i}` });
     await g.call('setPlayerReady', { roomId, ready: true });
@@ -261,5 +262,48 @@ describe('presence, forfeit and reconnect', () => {
     expect(res).toEqual({ roomId, gameId });
     const stranger = await player();
     expect(await stranger.call<ReconnectResponse>('reconnectPlayer')).toEqual({ roomId: null, gameId: null });
+  });
+});
+
+/** Move an async game's deadline into the past, as if a day had gone by. */
+async function expireTurn(gameId: string) {
+  const env = await initializeTestEnvironment({ projectId: PROJECT_ID, firestore: { host: '127.0.0.1', port: 8080 } });
+  await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'games', gameId), { turnDeadline: Date.now() - 1 }));
+  await env.cleanup();
+}
+
+describe('async (play anytime) games', () => {
+  it('stores the pace and gives each new turn a deadline', async () => {
+    const { host, all, gameId, roomId } = await startedGame(1, 1, 'async');
+    const room = (await getDoc(doc(host.firestore, 'rooms', roomId))).data() as RoomDoc;
+    expect(room.pace).toBe('async');
+    const started = await readGame(host, gameId);
+    expect(started.pace).toBe('async');
+    expect(started.turnDeadline).toBeGreaterThan(started.createdAt);
+
+    await moveForCurrent(all, gameId, 'H-0-0');
+    const after = await readGame(host, gameId);
+    expect(after.state.currentPlayerIndex).toBe(1);
+    expect(after.turnDeadline).toBeGreaterThanOrEqual(after.turnStartedAt);
+  });
+
+  it('ignores presence, and forfeits only a player whose turn ran out', async () => {
+    const { host, guests, gameId } = await startedGame(1, 1, 'async');
+    await moveForCurrent([host, ...guests], gameId, 'H-0-0'); // guest's turn now
+    await expectCode(host.call('claimInactivity', { gameId, targetUid: guests[0]!.uid }), 'TURN_NOT_EXPIRED');
+    expect((await readGame(host, gameId)).turnDeadline).toBeGreaterThan(Date.now() + 60 * 60 * 1000);
+    await expireTurn(gameId);
+    // Only the player to move can time out.
+    await expectCode(guests[0]!.call('claimInactivity', { gameId, targetUid: host.uid }), 'TURN_NOT_EXPIRED');
+    await host.call('claimInactivity', { gameId, targetUid: guests[0]!.uid });
+    const game = await readGame(host, gameId);
+    expect(game.state.status).toBe('finished');
+    expect(game.state.winnerIds).toEqual([host.uid]);
+    expect(game.turnDeadline).toBeNull();
+  });
+
+  it('live games keep no deadline', async () => {
+    const { host, gameId } = await startedGame(1);
+    expect((await readGame(host, gameId)).turnDeadline).toBeUndefined();
   });
 });

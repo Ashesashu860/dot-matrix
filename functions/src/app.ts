@@ -1,7 +1,7 @@
 import { getApps, initializeApp } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
-import { CALLABLE_REGION, PRESENCE_GRACE_MS } from '@dots/protocol';
+import { ASYNC_TURN_MS, CALLABLE_REGION, PRESENCE_GRACE_MS } from '@dots/protocol';
 
 if (getApps().length === 0) initializeApp();
 
@@ -16,6 +16,7 @@ export const REGION = CALLABLE_REGION;
 export const config = {
   enforceAppCheck: process.env.ENFORCE_APP_CHECK !== 'false',
   presenceGraceMs: Number(process.env.PRESENCE_GRACE_MS ?? PRESENCE_GRACE_MS),
+  asyncTurnMs: Number(process.env.ASYNC_TURN_MS ?? ASYNC_TURN_MS),
 };
 
 export const now = () => Date.now();

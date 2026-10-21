@@ -16,6 +16,10 @@ export const ROOM_CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
 export const PRESENCE_GRACE_MS = 60_000;
 /** Rooms nobody touches are removed by a Firestore TTL policy on `expiresAt`. */
 export const ROOM_TTL_MS = 24 * 60 * 60 * 1000;
+/** "Play anytime" games: each player has this long to move before forfeiting. */
+export const ASYNC_TURN_MS = 24 * 60 * 60 * 1000;
+/** Async rooms outlive the TTL above; every move pushes the expiry back this far. */
+export const ASYNC_ROOM_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export const ROOM_CREATE_LIMIT = { capacity: 5, refillPerMinute: 1 } as const;
 
 export const PLAYER_COLORS = ['#FF3D7F', '#1E9BFF', '#FFB21E', '#21C46B'] as const;
@@ -39,7 +43,8 @@ export type ProtocolErrorCode =
   | 'PLAYERS_NOT_READY'
   | 'GAME_NOT_FOUND'
   | 'STALE_STATE'
-  | 'PLAYER_STILL_CONNECTED';
+  | 'PLAYER_STILL_CONNECTED'
+  | 'TURN_NOT_EXPIRED';
 
 export const ERROR_MESSAGES: Record<ProtocolErrorCode, string> = {
   GAME_NOT_PLAYING: 'This game is not in progress.',
@@ -60,6 +65,7 @@ export const ERROR_MESSAGES: Record<ProtocolErrorCode, string> = {
   GAME_NOT_FOUND: 'Game not found.',
   STALE_STATE: 'The board changed. Syncing…',
   PLAYER_STILL_CONNECTED: 'That player is still connected.',
+  TURN_NOT_EXPIRED: 'They still have time to make their move.',
 };
 
 // ---------------------------------------------------------------------------
@@ -119,11 +125,16 @@ export const boardSchema = z.union([
   }),
 ]);
 
+/** Live games need everyone online; async ("play anytime") games allow a day per turn. */
+export const ROOM_PACES = ['live', 'async'] as const;
+export type RoomPace = (typeof ROOM_PACES)[number];
+
 export const createRoomRequest = z.object({
   name: playerName,
   board: boardSchema,
   maxPlayers: z.number().int().min(MIN_PLAYERS).max(MAX_PLAYERS).default(MAX_PLAYERS),
   extraTurnOnCapture: z.boolean().default(true),
+  pace: z.enum(ROOM_PACES).default('live'),
 });
 export type CreateRoomRequest = z.input<typeof createRoomRequest>;
 export interface CreateRoomResponse {
@@ -197,6 +208,8 @@ export interface RoomDoc {
   rows: number;
   columns: number;
   extraTurnOnCapture: boolean;
+  /** Absent on rooms created before async play: those are live. */
+  pace?: RoomPace;
   /** Current members, in join order. Used by security rules. */
   playerUids: string[];
   activeGameId: string | null;
@@ -229,6 +242,9 @@ export interface GameDoc {
   createdAt: number;
   updatedAt: number;
   resultsProcessed: boolean;
+  pace?: RoomPace;
+  /** Async games: when the current player forfeits for not moving; null once finished. */
+  turnDeadline?: number | null;
 }
 
 export interface MoveDoc {
@@ -243,6 +259,12 @@ export interface MoveDoc {
 export interface PlayerStatsDoc extends PlayerStats {
   uid: string;
   updatedAt: number;
+}
+
+/** users/{uid}/pushTokens/{id}: a device to notify of turns in async games. */
+export interface PushTokenDoc {
+  token: string;
+  createdAt: number;
 }
 
 export interface UserDoc {

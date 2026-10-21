@@ -28,6 +28,20 @@ service cloud.firestore {
         && request.resource.data.displayName.size() <= 20
         && request.resource.data.createdAt is int;
       allow delete: if false;
+
+      // Devices to notify of turns in async games. Only the owner registers or
+      // removes them; Cloud Functions read them to send pushes.
+      match /pushTokens/{tokenId} {
+        allow read, delete: if signedIn() && request.auth.uid == uid;
+        allow create: if signedIn() && request.auth.uid == uid
+          && tokenId.size() <= 128
+          && request.resource.data.keys().hasOnly(['token', 'createdAt'])
+          && request.resource.data.token is string
+          && request.resource.data.token.size() > 0
+          && request.resource.data.token.size() <= 4096
+          && request.resource.data.createdAt is int;
+        allow update: if false;
+      }
     }
 
     match /rooms/{roomId} {

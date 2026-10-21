@@ -78,4 +78,48 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+/** Turn notifications for async games (data-only FCM messages, see functions/src/notify.ts). */
+interface TurnPush {
+  title?: string;
+  body?: string;
+  url?: string;
+  tag?: string;
+}
+
+self.addEventListener('push', (event) => {
+  let payload: { data?: TurnPush } & TurnPush = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    // Not JSON: show a generic notification below.
+  }
+  const data = payload.data ?? payload;
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? 'Dotsnatch', {
+      body: data.body ?? 'It’s your turn.',
+      tag: data.tag,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: { url: data.url ?? '/online' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL((event.notification.data as { url?: string } | null)?.url ?? '/online', self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        await open.focus();
+        await open.navigate(target).catch(() => undefined);
+      } else {
+        await self.clients.openWindow(target);
+      }
+    })(),
+  );
+});
+
 serwist.addEventListeners();

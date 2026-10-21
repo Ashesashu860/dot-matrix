@@ -38,13 +38,14 @@ The game screen, board and scoreboard only talk to the `GameController` interfac
 ## Online data model
 
 ```
-rooms/{roomId}                 lobby + live mirror (status, playerUids, currentPlayerUid, totalMoves, expiresAt TTL)
+rooms/{roomId}                 lobby + live mirror (status, pace, playerUids, currentPlayerUid, totalMoves, expiresAt TTL)
 rooms/{roomId}/players/{uid}   name, colour, ready, connected, disconnectedAt
 roomCodes/{code}               active code → roomId (unique, deleted when the game starts)
-games/{gameId}                 authoritative GameState + seq + memberUids (kept as history)
+games/{gameId}                 authoritative GameState + seq + memberUids + pace/turnDeadline (kept as history)
 games/{gameId}/moves/{seq}     accepted moves; zero-padded id = order; clientMoveId for idempotency
 playerStats/{uid}              server-written stats
 rateLimits/{uid}_{action}      token buckets
+users/{uid}/pushTokens/{id}    devices to notify of async turns (client-created, server-read)
 RTDB /status/{roomId}/{uid}    online/offline presence;  /rooms/{roomId}/members/{uid} for RTDB rules
 ```
 
@@ -66,7 +67,13 @@ Firestore retries contended transactions, so of two simultaneous requests for th
 
 - Clients write RTDB `/status`, with `onDisconnect` set to write offline. `onPresenceWritten` mirrors that into `players/{uid}.connected/disconnectedAt`.
 - Once the grace period has passed (60 s by default, `PRESENCE_GRACE_MS`), any active player's client calls `claimInactivity`. The server re-checks the timestamps and forfeits that player via `forfeitPlayer`: their turns are skipped, and the game ends if only one player is left.
-- On reconnect, the same anonymous UID calls `reconnectPlayer` and resubscribes to the authoritative document. Retried moves reuse their `clientMoveId`, so they can never duplicate or reorder.
+- On reconnect, the same anonymous UID finds the game in the `/online` "Your games" list (a live query on `rooms` by `playerUids`) and resubscribes to the authoritative document. Retried moves reuse their `clientMoveId`, so they can never duplicate or reorder.
+
+### Async ("play anytime") games
+
+- A room's `pace` is `live` (default) or `async`. Async games ignore presence: nobody is dropped for closing the app.
+- Each new turn gets `turnDeadline` (24 h). `submitMove` refreshes it and pushes the room's TTL out a week. When it passes, any opponent's client calls `claimInactivity`, which forfeits only the player to move; the `expireTurns` schedule sweeps games nobody opens.
+- After a move that hands over the turn, `submitMove` sends a data-only FCM push to the next player's registered devices. The app's own service worker shows it and opens the room on tap.
 
 ### Results and stats
 

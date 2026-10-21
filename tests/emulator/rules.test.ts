@@ -97,6 +97,18 @@ describe('firestore: authoritative fields are server-only', () => {
     await assertFails(setDoc(doc(db, 'users/alice'), { displayName: 'Alice', createdAt: 1, admin: true }));
     await assertFails(setDoc(doc(db, 'users/bob'), { displayName: 'Bob', createdAt: 1 }));
   });
+
+  it('users manage only their own push tokens', async () => {
+    const db = alice().firestore();
+    await assertSucceeds(setDoc(doc(db, 'users/alice/pushTokens/t1'), { token: 'abc', createdAt: 1 }));
+    await assertSucceeds(getDoc(doc(db, 'users/alice/pushTokens/t1')));
+    await assertFails(updateDoc(doc(db, 'users/alice/pushTokens/t1'), { token: 'other' }));
+    await assertFails(setDoc(doc(db, 'users/alice/pushTokens/t2'), { token: '', createdAt: 1 }));
+    await assertFails(setDoc(doc(db, 'users/alice/pushTokens/t3'), { token: 'abc', createdAt: 1, extra: true }));
+    await assertFails(setDoc(doc(mallory().firestore(), 'users/alice/pushTokens/t4'), { token: 'abc', createdAt: 1 }));
+    await assertFails(getDoc(doc(mallory().firestore(), 'users/alice/pushTokens/t1')));
+    await assertSucceeds(deleteDoc(doc(db, 'users/alice/pushTokens/t1')));
+  });
 });
 
 describe('realtime database presence rules', () => {

@@ -2,9 +2,10 @@
 
 import { CUSTOM_LEVEL, MAX_PLAYERS } from '@dots/game-engine';
 import { ONLINE_MAX_DOTS, PLAYER_NAME_MAX, ROOM_CODE_LENGTH, normaliseRoomCode, sanitizePlayerName } from '@dots/protocol';
+import type { RoomPace } from '@dots/protocol';
 import { Loader2, WifiOff } from 'lucide-react';
 import { Tabs as TabsPrimitive } from 'radix-ui';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { BoardPicker } from '@/components/board-picker';
@@ -16,6 +17,7 @@ import { OnlineError, api } from '@/firebase/api';
 import { ensureSignedIn, isFirebaseConfigured } from '@/firebase/client';
 import { navigate } from '@/lib/navigation';
 import { useSettings } from '@/stores/settings-store';
+import { YourGames } from './your-games';
 
 function subscribeOnline(callback: () => void) {
   window.addEventListener('online', callback);
@@ -39,25 +41,27 @@ export function OnlineHome() {
   const online = useOnline();
   const settings = useSettings();
   const [name, setName] = useState('');
-  const [code, setCode] = useState('');
+  // Invite links carry the code: /online?code=X8K4P2
+  const invited = normaliseRoomCode(useSearchParams().get('code') ?? '').slice(0, ROOM_CODE_LENGTH);
+  const [code, setCode] = useState(invited);
+  const [pace, setPace] = useState<RoomPace>('live');
   const [board, setBoard] = useState<BoardChoice>({ level: 1, rows: 4, columns: 4 });
   const [maxPlayers, setMaxPlayers] = useState(MAX_PLAYERS);
   const [extraTurn, setExtraTurn] = useState(true);
   const [busy, setBusy] = useState<'create' | 'join' | null>(null);
-  const [rejoin, setRejoin] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (settings.hydrated) setName(settings.onlineName || settings.lastPlayerNames[0] || '');
   }, [settings.hydrated]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Offer to jump back into an unfinished online game (reconnection, §6.4).
+  // Sign in up front so the player's open games can be listed (reconnection, §6.4).
   useEffect(() => {
     if (!online || !isFirebaseConfigured()) return;
     let cancelled = false;
     ensureSignedIn()
-      .then(() => api.reconnectPlayer())
-      .then((res) => !cancelled && setRejoin(res.roomId))
+      .then((user) => !cancelled && setUid(user.uid))
       .catch(() => {});
     return () => {
       cancelled = true;
@@ -82,6 +86,7 @@ export function OnlineHome() {
               board: board.level === CUSTOM_LEVEL ? { level: 0, rows: board.rows, columns: board.columns } : { level: board.level },
               maxPlayers,
               extraTurnOnCapture: extraTurn,
+              pace,
             })
           : await api.joinRoom({ code, name: cleanName });
       navigate(router, `/online/room?id=${roomId}`);
@@ -120,12 +125,7 @@ export function OnlineHome() {
 
   return (
     <PageShell title="Online" right={<OnlinePill />}>
-      {rejoin && (
-        <Chunky tone="dark" onClick={() => navigate(router, `/online/room?id=${rejoin}`)} className="flex h-16 items-center gap-3 rounded-[22px] px-4 text-left text-xl">
-          <span className="flex size-9 items-center justify-center rounded-full bg-white pl-0.5 text-base text-ink">▶</span>
-          Rejoin your game
-        </Chunky>
-      )}
+      {uid && <YourGames uid={uid} />}
 
       <section className="card-3d flex flex-col gap-2 p-4">
         <label htmlFor="online-name" className="card-label">
@@ -191,6 +191,31 @@ export function OnlineHome() {
         <TabsPrimitive.Content value="create" className="flex flex-col gap-3.5 outline-none">
           <Section title="Level">
             <BoardPicker value={board} onChange={setBoard} maxDots={ONLINE_MAX_DOTS} />
+          </Section>
+          <Section title="Pace">
+            <div className="flex gap-2" role="radiogroup" aria-label="Pace">
+              {(
+                [
+                  ['live', 'Live', 'Everyone online now'],
+                  ['async', 'Play anytime', 'A day per move'],
+                ] as const
+              ).map(([value, label, desc]) => {
+                const selected = pace === value;
+                return (
+                  <button
+                    key={value}
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setPace(value)}
+                    className="flex h-16 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-2xl transition-all duration-150"
+                    style={{ background: selected ? '#2B1B4A' : '#F6F1FB', color: selected ? '#fff' : '#2B1B4A' }}
+                  >
+                    <span className="font-display text-base font-extrabold">{label}</span>
+                    <span className="text-[11px] font-bold opacity-80">{desc}</span>
+                  </button>
+                );
+              })}
+            </div>
           </Section>
           <Section title="Players">
             <div className="flex gap-2" role="radiogroup" aria-label="Maximum players">

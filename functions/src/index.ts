@@ -2,3 +2,4 @@ export { createRoom, joinRoom, leaveRoom, setPlayerReady, startGame } from './ro
 export { submitMove } from './moves';
 export { claimInactivity, forfeitGame, onPresenceWritten, reconnectPlayer } from './presence';
 export { onGameFinished } from './results';
+export { expireTurns } from './deadlines';

@@ -152,4 +152,32 @@ describe('OnlineController', () => {
     expect(t.transport.claimInactivity).not.toHaveBeenCalled();
     c.dispose();
   });
+
+  it('async games ignore presence and claim only once the opponent’s turn runs out', async () => {
+    vi.useFakeTimers();
+    const t = fakeTransport();
+    const start = gameDoc();
+    const deadline = Date.now() + 10_000;
+    const doc = { ...serverApply({ ...start, pace: 'async' as const }, 'H-0-0', 'me'), turnDeadline: deadline };
+    const c = new OnlineController({ ...start, pace: 'async', turnDeadline: Date.now() + 5_000 }, 'me', t.transport, 1_000);
+    t.emitGame({ game: doc, fromCache: false });
+    expect(c.getView().turnDeadline).toBe(deadline);
+    t.emitPlayers([{ uid: 'them', name: 'Them', color: '#f00', ready: true, joinedAt: 0, connected: false, disconnectedAt: Date.now() }]);
+    expect(c.getView().disconnectedPlayerIds).toEqual([]);
+    await vi.advanceTimersByTimeAsync(9_000);
+    expect(t.transport.claimInactivity).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(2_000);
+    expect(t.transport.claimInactivity).toHaveBeenCalledWith('them');
+    expect(t.transport.claimInactivity).toHaveBeenCalledTimes(1);
+    c.dispose();
+  });
+
+  it('async games never claim against the local player', async () => {
+    vi.useFakeTimers();
+    const t = fakeTransport();
+    const c = new OnlineController({ ...gameDoc(), pace: 'async', turnDeadline: Date.now() + 1_000 }, 'me', t.transport);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(t.transport.claimInactivity).not.toHaveBeenCalled();
+    c.dispose();
+  });
 });

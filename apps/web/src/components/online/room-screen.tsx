@@ -2,9 +2,10 @@
 
 import type { RoomDoc, RoomPlayerDoc } from '@dots/protocol';
 import { collection, doc, onSnapshot } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { GameScreen } from '@/components/game/game-screen';
 import { PageShell } from '@/components/page-shell';
@@ -13,6 +14,7 @@ import { OnlineController } from '@/controllers/online-controller';
 import { api } from '@/firebase/api';
 import { ensureSignedIn, getFirebase } from '@/firebase/client';
 import { trackPresence } from '@/firebase/presence';
+import { canNotify, enableTurnNotifications, notificationsAllowed } from '@/firebase/push';
 import { createFirebaseTransport, loadGame } from '@/firebase/transport';
 import { navigate } from '@/lib/navigation';
 import { useProgress } from '@/stores/progress-store';
@@ -103,16 +105,38 @@ export function RoomScreen() {
     navigate(router, '/');
   };
 
-  if (controller) return <OnlineGame controller={controller} uid={uid} onExit={leave} />;
+  if (controller) {
+    return (
+      <OnlineGame
+        controller={controller}
+        uid={uid}
+        onExit={leave}
+        // Async games run for days: stepping away is not leaving.
+        onStepAway={controller.async ? () => navigate(router, '/online') : undefined}
+      />
+    );
+  }
   if (room.status === 'waiting') {
     return <Lobby roomId={roomId} room={room} players={players} uid={uid} onLeave={leave} />;
   }
   return <Spinner />;
 }
 
-function OnlineGame({ controller, uid, onExit }: { controller: OnlineController; uid: string; onExit(): void }) {
+function OnlineGame({
+  controller,
+  uid,
+  onExit,
+  onStepAway,
+}: {
+  controller: OnlineController;
+  uid: string;
+  onExit(): void;
+  onStepAway?: () => void;
+}) {
   const router = useRouter();
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
+  const now = useNow(60_000);
+  const [notify, setNotify] = useState(() => (canNotify() && !notificationsAllowed() ? 'ask' : 'hidden'));
   const recorded = useRef<string | null>(null);
 
   // Keep a local history/stats entry too; the authoritative stats live server-side.
@@ -122,15 +146,75 @@ function OnlineGame({ controller, uid, onExit }: { controller: OnlineController;
     void useProgress.getState().recordGame(view.state, uid);
   }, [view.state, uid]);
 
+  const { state, turnDeadline } = view;
+  const current = state.players[state.currentPlayerIndex];
+  const playing = state.status === 'playing';
+
   return (
     <GameScreen
       controller={controller}
       perspectiveId={uid}
-      onExit={onExit}
+      onExit={onStepAway ?? onExit}
       onNewGame={() => navigate(router, '/online')}
       online
+      exitLabel={onStepAway ? 'Back to your games' : undefined}
+      menuActions={
+        onStepAway &&
+        playing && (
+          <Chunky tone="soft" onClick={onExit} className="h-[54px] w-full rounded-[20px] text-xl" style={{ color: '#D61F63' }}>
+            Forfeit game
+          </Chunky>
+        )
+      }
+      goal={
+        controller.async &&
+        playing &&
+        turnDeadline && (
+          <p className="text-center text-xs font-extrabold text-screen-soft">
+            {current?.id === uid ? 'You have' : `${current?.name ?? 'They'} has`} {timeLeft(turnDeadline - now)} to move
+          </p>
+        )
+      }
+      actions={
+        controller.async &&
+        playing &&
+        notify === 'ask' && (
+          <Chunky
+            tone="soft"
+            onClick={() =>
+              void enableTurnNotifications(uid)
+                .then((ok) => {
+                  setNotify('hidden');
+                  if (ok) toast.success('We’ll let you know when it’s your turn.');
+                })
+                .catch(() => toast.error('Could not turn on notifications.'))
+            }
+            className="flex h-12 items-center justify-center gap-2 rounded-[18px] text-lg"
+          >
+            <Bell className="size-5" aria-hidden="true" />
+            Notify me on my turn
+          </Chunky>
+        )
+      }
     />
   );
+}
+
+/** Re-render every `ms` (countdowns). */
+function useNow(ms: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
+function timeLeft(ms: number): string {
+  const minutes = Math.max(0, Math.ceil(ms / 60_000));
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  return `${h}h ${minutes % 60}m`;
 }
 
 function Spinner() {

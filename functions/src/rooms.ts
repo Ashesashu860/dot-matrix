@@ -2,7 +2,6 @@ import { createGame, getLevel } from '@dots/game-engine';
 import {
   PLAYER_COLORS,
   ROOM_CREATE_LIMIT,
-  ROOM_TTL_MS,
   createRoomRequest,
   generateRoomCode,
   joinRoomRequest,
@@ -19,16 +18,16 @@ import type {
   StartGameResponse,
 } from '@dots/protocol';
 import { randomInt } from 'node:crypto';
-import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import { FieldValue } from 'firebase-admin/firestore';
 import type { Transaction } from 'firebase-admin/firestore';
 import { db, now, rtdb } from './app';
 import { callable } from './callable';
 import { GameError } from './errors';
+import { roomExpiry, turnDeadline } from './expiry';
 import { forfeitInTransaction } from './forfeit';
 import { takeToken } from './rate-limit';
 import { rateLimitRef, roomCodeRef, roomPlayerRef, roomPlayersRef, roomRef } from './refs';
 
-const expiresAt = (t: number) => Timestamp.fromMillis(t + ROOM_TTL_MS);
 const secureRandom = () => randomInt(0, 2 ** 32) / 2 ** 32;
 
 async function setRtdbMembership(roomId: string, uid: string, member: boolean) {
@@ -67,13 +66,14 @@ export const createRoom = callable(createRoomRequest, async ({ uid, data }): Pro
       rows: board.rows,
       columns: board.columns,
       extraTurnOnCapture: data.extraTurnOnCapture,
+      pace: data.pace,
       playerUids: [uid],
       activeGameId: null,
       currentPlayerUid: null,
       totalMoves: 0,
       createdAt: t,
       updatedAt: t,
-      expiresAt: expiresAt(t),
+      expiresAt: roomExpiry(t, data.pace),
     };
     const player: RoomPlayerDoc = {
       uid,
@@ -124,7 +124,7 @@ export const joinRoom = callable(joinRoomRequest, async ({ uid, data }): Promise
     tx.update(roomRef(id), {
       playerUids: FieldValue.arrayUnion(uid) as unknown as string[],
       updatedAt: t,
-      expiresAt: expiresAt(t),
+      expiresAt: roomExpiry(t, room.pace),
     });
     tx.set(db.doc(`users/${uid}`), { displayName: data.name, createdAt: t }, { merge: true });
     return id;
@@ -179,6 +179,7 @@ export const startGame = callable(roomRequest, async ({ uid, data }): Promise<St
       createdAt: t,
       updatedAt: t,
       resultsProcessed: false,
+      ...(room.pace === 'async' && { pace: 'async', turnDeadline: turnDeadline(t, 'async') }),
     };
     tx.set(gameDoc as FirebaseFirestore.DocumentReference<GameDoc>, game);
     tx.update(roomRef(data.roomId), {
@@ -187,7 +188,7 @@ export const startGame = callable(roomRequest, async ({ uid, data }): Promise<St
       currentPlayerUid: state.players[0]!.id,
       totalMoves: 0,
       updatedAt: t,
-      expiresAt: expiresAt(t),
+      expiresAt: roomExpiry(t, room.pace),
     });
     // The game has started: free the code so nobody else tries to join.
     tx.delete(roomCodeRef(room.code));

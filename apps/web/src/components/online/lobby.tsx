@@ -52,15 +52,17 @@ export function Lobby({
     }
   };
 
+  const inviteUrl = `${location.origin}/online?code=${room.code}`;
+
   const copy = async () => {
-    await navigator.clipboard?.writeText(room.code).catch(() => {});
+    await navigator.clipboard?.writeText(inviteUrl).catch(() => {});
     setCopied(true);
   };
 
   const share = async () => {
-    const text = `Join my Dotsnatch game with code ${room.code}`;
+    const text = `Join my Dotsnatch game: code ${room.code}`;
     try {
-      if (navigator.share) await navigator.share({ title: 'Dotsnatch', text });
+      if (navigator.share) await navigator.share({ title: 'Dotsnatch', text, url: inviteUrl });
       else await copy();
     } catch {
       // cancelled
@@ -116,7 +118,7 @@ export function Lobby({
         </div>
         <div className="flex gap-2">
           <button onClick={copy} className="cursor-pointer rounded-full bg-ink px-[18px] py-[9px] text-sm font-extrabold text-white active:scale-95">
-            {copied ? 'Copied!' : 'Copy invite code'}
+            {copied ? 'Copied!' : 'Copy invite link'}
           </button>
           <button onClick={share} className="cursor-pointer rounded-full bg-soft px-[18px] py-[9px] text-sm font-extrabold text-ink active:scale-95">
             Share
@@ -164,7 +166,8 @@ export function Lobby({
         <CardLabel>Board</CardLabel>
         <span className="font-display text-lg font-extrabold text-ink">{board}</span>
         <span className="text-xs font-bold text-label">
-          {room.extraTurnOnCapture ? 'Extra turn on capture' : 'No extra turn on capture'}
+          {room.extraTurnOnCapture ? 'Extra turn on capture' : 'No extra turn on capture'} ·{' '}
+          {room.pace === 'async' ? 'Play anytime: a day per move' : 'Live'}
         </span>
       </section>
     </PageShell>

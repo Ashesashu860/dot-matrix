@@ -1,6 +1,7 @@
 import { forfeitPlayer } from '@dots/game-engine';
 import type { Transaction } from 'firebase-admin/firestore';
 import { now } from './app';
+import { turnDeadline } from './expiry';
 import { gameRef, roomRef } from './refs';
 
 /**
@@ -19,6 +20,8 @@ export async function forfeitInTransaction(tx: Transaction, gameId: string, uid:
     state,
     updatedAt: t,
     ...(turnChanged ? { turnStartedAt: t } : {}),
+    ...(game.pace === 'async' &&
+      (state.status !== 'playing' ? { turnDeadline: null } : turnChanged ? { turnDeadline: turnDeadline(t, 'async') } : {})),
   });
   tx.update(roomRef(game.roomId), {
     currentPlayerUid: state.status === 'playing' ? (state.players[state.currentPlayerIndex]?.id ?? null) : null,

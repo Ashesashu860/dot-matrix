@@ -37,6 +37,9 @@ export class OnlineController extends BaseController {
   private pendingSeq: number | null = null;
   private unsubscribers: Array<() => void> = [];
   private inactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private deadlineTimer: ReturnType<typeof setTimeout> | null = null;
+  /** "Play anytime": presence is ignored and turns expire on a deadline instead. */
+  readonly async: boolean;
   private firestoreConnected = true;
   private rtdbConnected = true;
   private disposed = false;
@@ -49,6 +52,9 @@ export class OnlineController extends BaseController {
   ) {
     super(initial.state, [uid]);
     this.seq = initial.seq;
+    this.async = initial.pace === 'async';
+    this.view = { ...this.view, turnDeadline: initial.turnDeadline ?? null };
+    this.scheduleDeadline(initial);
     this.unsubscribers.push(
       transport.subscribeGame(
         (snapshot) => this.onGame(snapshot),
@@ -79,7 +85,8 @@ export class OnlineController extends BaseController {
     const previous = this.view.state;
     const next = game.state;
     this.seq = game.seq;
-    const patch: Parameters<BaseController['update']>[0] = { state: next };
+    const patch: Parameters<BaseController['update']>[0] = { state: next, turnDeadline: game.turnDeadline ?? null };
+    this.scheduleDeadline(game);
 
     // Clear the pending edge once the server has accepted our move (or moved past it).
     if (this.pendingSeq !== null && game.seq > this.pendingSeq) {
@@ -104,8 +111,25 @@ export class OnlineController extends BaseController {
     this.refreshConnection();
   }
 
+  /** Async: once the player to move runs out of time, ask the server to drop them. */
+  private scheduleDeadline(game: GameDoc) {
+    if (this.deadlineTimer) clearTimeout(this.deadlineTimer);
+    this.deadlineTimer = null;
+    const current = game.state.players[game.state.currentPlayerIndex]?.id;
+    if (!this.async || !game.turnDeadline || game.state.status !== 'playing' || !current || current === this.uid) return;
+    // setTimeout overflows past ~24.8 days; deadlines are a day, so this only guards bad data.
+    const delay = Math.min(Math.max(0, game.turnDeadline + 500 - Date.now()), 2 ** 31 - 1);
+    this.deadlineTimer = setTimeout(() => {
+      this.deadlineTimer = null;
+      if (this.disposed || this.view.state.status !== 'playing') return;
+      void this.transport.claimInactivity(current).catch(() => {});
+    }, delay);
+  }
+
   private onPlayers(players: RoomPlayerDoc[]) {
     const disconnected = players.filter((p) => !p.connected);
+    // Async opponents are expected to be away; never flag or drop them for it.
+    if (this.async) return;
     this.update({ disconnectedPlayerIds: disconnected.map((p) => p.uid) });
 
     // Any remaining player may ask the server to drop someone offline past the
@@ -168,6 +192,7 @@ export class OnlineController extends BaseController {
     for (const unsubscribe of this.unsubscribers) unsubscribe();
     for (const timer of this.inactivityTimers.values()) clearTimeout(timer);
     this.inactivityTimers.clear();
+    if (this.deadlineTimer) clearTimeout(this.deadlineTimer);
     super.dispose();
   }
 }

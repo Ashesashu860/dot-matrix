@@ -43,6 +43,15 @@ export const claimInactivity = callable(claimInactivityRequest, async ({ uid, da
     const caller = game.state.players.find((p) => p.id === uid);
     if (!caller?.active) throw new GameError('UNKNOWN_PLAYER');
     if (!game.memberUids.includes(data.targetUid)) throw new GameError('UNKNOWN_PLAYER');
+    if (game.pace === 'async') {
+      // Async games ignore presence: only a player who let their turn run out is dropped.
+      const current = game.state.players[game.state.currentPlayerIndex]?.id;
+      if (current !== data.targetUid || !game.turnDeadline || now() < game.turnDeadline) {
+        throw new GameError('TURN_NOT_EXPIRED');
+      }
+      await forfeitInTransaction(tx, data.gameId, data.targetUid);
+      return;
+    }
     const target = (await tx.get(roomPlayerRef(game.roomId, data.targetUid))).data();
     const offlineSince = target?.connected === false ? target.disconnectedAt : null;
     if (offlineSince === null || offlineSince === undefined || now() - offlineSince < config.presenceGraceMs) {

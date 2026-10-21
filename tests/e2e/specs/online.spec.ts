@@ -17,9 +17,10 @@ async function setName(page: Page, name: string) {
   await input.fill(name);
 }
 
-async function createRoom(page: Page) {
+async function createRoom(page: Page, pace: 'Live' | 'Play anytime' = 'Live') {
   await setName(page, 'Host');
   await page.getByRole('tab', { name: 'Create a room' }).click();
+  await page.getByRole('radio', { name: new RegExp(pace) }).click();
   await page.getByRole('button', { name: 'Create room' }).click();
   await page.waitForURL(/\/online\/room\?id=/);
   const label = await page.getByLabel(/^Room code/).getAttribute('aria-label');
@@ -94,11 +95,37 @@ test('a disconnected player is shown as offline and can reconnect to the same ga
   // Same browser profile (same anonymous UID) comes back and rejoins.
   const again = await b.context.newPage();
   await again.goto('/online');
-  await again.getByRole('button', { name: 'Rejoin your game' }).click();
+  await again.getByRole('link', { name: /Your turn/ }).click();
   await expect(again.getByRole('group', { name: /Game board/ })).toBeVisible({ timeout: 10_000 });
   await expect.poll(() => edgesLeft(again)).toBe(23);
   await expect(again.getByText('Your turn')).toBeVisible();
   await expect(a.page.getByLabel('disconnected')).toHaveCount(0, { timeout: 15_000 });
+
+  await a.context.close();
+  await b.context.close();
+});
+
+test('an invite link opens the join form with the code filled in, and async games list whose turn it is', async ({ browser, baseURL }) => {
+  const a = await newPlayerPage(browser, baseURL!);
+  const b = await newPlayerPage(browser, baseURL!);
+  const code = await createRoom(a.page, 'Play anytime');
+  await expect(a.page.getByText(/Play anytime: a day per move/)).toBeVisible();
+
+  await b.page.goto(`/online?code=${code}`);
+  await b.page.getByLabel('Your name').fill('Guest');
+  await expect(b.page.getByLabel('Room code')).toHaveValue(code);
+  await b.page.getByRole('button', { name: 'Join' }).click();
+  await b.page.waitForURL(/\/online\/room\?id=/);
+  await startGame(a.page, b.page);
+  await expect(a.page.getByText(/You have \d+h \d+m to move/)).toBeVisible();
+
+  // Stepping away from an async game does not forfeit it.
+  await a.page.getByRole('button', { name: 'Pause' }).click();
+  await a.page.getByRole('button', { name: 'Back to your games' }).click();
+  await a.page.waitForURL(/\/online$/);
+  await expect(a.page.getByRole('link', { name: /Your turn.*play anytime/ })).toBeVisible({ timeout: 10_000 });
+  await b.page.goto('/online');
+  await expect(b.page.getByRole('link', { name: /Their turn.*play anytime/ })).toBeVisible({ timeout: 10_000 });
 
   await a.context.close();
   await b.context.close();

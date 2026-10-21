@@ -4,6 +4,8 @@ import type { MoveDoc, SubmitMoveResponse } from '@dots/protocol';
 import { db, now } from './app';
 import { callable } from './callable';
 import { GameError } from './errors';
+import { roomExpiry, turnDeadline } from './expiry';
+import { notifyTurn } from './notify';
 import { gameRef, moveRef, roomRef } from './refs';
 
 /**
@@ -14,7 +16,7 @@ import { gameRef, moveRef, roomRef } from './refs';
  * EDGE_ALREADY_USED. Retries with the same clientMoveId are idempotent.
  */
 export const submitMove = callable(submitMoveRequest, async ({ uid, data }): Promise<SubmitMoveResponse> => {
-  return db.runTransaction(async (tx) => {
+  const { response, notify } = await db.runTransaction(async (tx) => {
     const gameSnap = await tx.get(gameRef(data.gameId));
     const game = gameSnap.data();
     if (!game) throw new GameError('GAME_NOT_FOUND');
@@ -23,7 +25,7 @@ export const submitMove = callable(submitMoveRequest, async ({ uid, data }): Pro
     // Idempotent retry: this exact move was already accepted at expectedSeq.
     const existing = (await tx.get(moveRef(data.gameId, moveDocId(data.expectedSeq)))).data();
     if (existing && existing.clientMoveId === data.clientMoveId && existing.playerUid === uid) {
-      return { acceptedSeq: existing.seq, duplicate: true };
+      return { response: { acceptedSeq: existing.seq, duplicate: true }, notify: null };
     }
 
     const { state } = game;
@@ -47,19 +49,30 @@ export const submitMove = callable(submitMoveRequest, async ({ uid, data }): Pro
       at: t,
     };
     const turnChanged = next.currentPlayerIndex !== state.currentPlayerIndex;
+    const nextUid = result.gameOver ? null : (next.players[next.currentPlayerIndex]?.id ?? null);
+    const async = game.pace === 'async';
     tx.update(gameRef(data.gameId), {
       state: next,
       seq: seq + 1,
       updatedAt: t,
       ...(turnChanged ? { turnStartedAt: t } : {}),
+      // Async: a new turn gets a fresh day; a finished game has no deadline.
+      ...(async && (result.gameOver ? { turnDeadline: null } : turnChanged ? { turnDeadline: turnDeadline(t, 'async') } : {})),
     });
     tx.create(moveRef(data.gameId, moveDocId(seq)), move);
     tx.update(roomRef(game.roomId), {
-      currentPlayerUid: result.gameOver ? null : (next.players[next.currentPlayerIndex]?.id ?? null),
+      currentPlayerUid: nextUid,
       totalMoves: next.totalMoves,
       updatedAt: t,
       ...(result.gameOver ? { status: 'finished' } : {}),
+      ...(async && { expiresAt: roomExpiry(t, 'async') }),
     });
-    return { acceptedSeq: seq, duplicate: false };
+    const moverName = state.players.find((p) => p.id === uid)?.name ?? 'Your opponent';
+    return {
+      response: { acceptedSeq: seq, duplicate: false },
+      notify: async && turnChanged && nextUid ? { uid: nextUid, roomId: game.roomId, byName: moverName } : null,
+    };
   });
+  if (notify) await notifyTurn(notify.uid, notify.roomId, notify.byName);
+  return response;
 });

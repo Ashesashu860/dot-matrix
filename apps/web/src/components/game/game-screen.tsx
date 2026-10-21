@@ -42,6 +42,10 @@ export interface GameScreenProps {
   /** Extra buttons under the turn banner (e.g. a hint). */
   actions?: ReactNode;
   result?: ResultOverrides;
+  /** Pause-menu exit label in place of the default (async games leave without forfeiting). */
+  exitLabel?: string;
+  /** Extra pause-menu buttons, above the exit. */
+  menuActions?: ReactNode;
 }
 
 /** Room left for everything above and below the board. */
@@ -93,6 +97,8 @@ export function GameScreen({
   hintEdgeId,
   actions,
   result,
+  exitLabel,
+  menuActions,
 }: GameScreenProps) {
   const view = useSyncExternalStore(controller.subscribe, controller.getView, controller.getView);
   const { state } = view;
@@ -273,6 +279,7 @@ export function GameScreen({
                   Restart
                 </Chunky>
               )}
+              {menuActions}
               <Chunky
                 tone="soft"
                 onClick={() => {
@@ -280,9 +287,9 @@ export function GameScreen({
                   onExit();
                 }}
                 className="h-[54px] w-full rounded-[20px] text-xl"
-                style={online ? { color: '#D61F63' } : undefined}
+                style={online && !exitLabel ? { color: '#D61F63' } : undefined}
               >
-                {online ? 'Leave game (forfeit)' : 'Exit to home'}
+                {exitLabel ?? (online ? 'Leave game (forfeit)' : 'Exit to home')}
               </Chunky>
             </div>
           </DialogPrimitive.Content>

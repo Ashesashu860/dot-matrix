@@ -29,3 +29,7 @@ env:
   # - variable: NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY
   #   value: <site key>
   #   availability: [BUILD, RUNTIME]
+  # Uncomment with the Web Push certificate key (Cloud Messaging) to enable turn notifications.
+  # - variable: NEXT_PUBLIC_FIREBASE_VAPID_KEY
+  #   value: <public key>
+  #   availability: [BUILD, RUNTIME]

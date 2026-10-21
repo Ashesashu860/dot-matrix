@@ -59,10 +59,19 @@ The indexes file also sets a **TTL policy** on `rooms.expiresAt`, so abandoned r
 3. After App Check is set up, uncomment `NEXT_PUBLIC_RECAPTCHA_ENTERPRISE_SITE_KEY` in that environment's `apphosting.<env>.yaml` and set `ENFORCE_APP_CHECK=true` in its `functions/.env.<projectId>`.
 4. Push to the live branch. App Hosting builds and deploys the Next.js app.
 
+## 4b. Turn notifications and async ("play anytime") games
+
+- Async rooms give each player `ASYNC_TURN_MS` (default 24 h) per turn. Add `ASYNC_TURN_MS=…` to `functions/.env.<projectId>` to change it.
+- A scheduled function, `expireTurns`, runs every 15 minutes and forfeits players whose turn ran out. Deploying it enables Cloud Scheduler for the project. Players can also claim an expired turn themselves (`claimInactivity`).
+- `firestore.indexes.json` adds a `games (pace, turnDeadline)` index for that sweep. Deploy indexes with the functions.
+- Push notifications: in the Firebase console → Project settings → Cloud Messaging → **Web Push certificates**, generate a key pair. Add the public key as `NEXT_PUBLIC_FIREBASE_VAPID_KEY` in that environment's `apphosting.<env>.yaml`. Without it, the "Notify me on my turn" button is hidden and async games still work.
+- On iPhone, web push only works for an installed PWA (Add to Home Screen) on iOS 16.4 or later.
+
 ## 5. Verify
 
 - Open the site, install the PWA, then play a CPU game offline.
 - Play an online game in two browsers. Watch Firestore `games/` and RTDB `status/` in the console.
+- Start a "Play anytime" game, turn on notifications in one browser, close it, and move in the other: the first device should get a notification.
 - Check the Cloud Functions logs for rejected requests (App Check, validation, rate limits).
 
 ## Environments

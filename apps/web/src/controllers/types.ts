@@ -26,6 +26,8 @@ export interface GameView {
   /** Players currently disconnected (online). */
   disconnectedPlayerIds: string[];
   error: string | null;
+  /** Async online games: when the current player must have moved by. */
+  turnDeadline?: number | null;
 }
 
 /**
